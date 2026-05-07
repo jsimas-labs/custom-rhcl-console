@@ -1,0 +1,153 @@
+[
+  {
+    "type": "console.navigation/section",
+    "properties": {
+      "id": "connectivity-link",
+      "name": "%plugin__custom-rhcl-console~Custom Connectivity Link%",
+      "perspective": "admin"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-overview",
+      "name": "%plugin__custom-rhcl-console~Overview%",
+      "href": "/connectivity-link",
+      "perspective": "admin",
+      "section": "connectivity-link"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-gateways",
+      "name": "%plugin__custom-rhcl-console~Gateways%",
+      "href": "/connectivity-link/gateways",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-overview"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-httproutes",
+      "name": "%plugin__custom-rhcl-console~HTTPRoutes%",
+      "href": "/connectivity-link/httproutes",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-gateways"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-policies",
+      "name": "%plugin__custom-rhcl-console~Policies%",
+      "href": "/connectivity-link/policies",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-httproutes"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-topology",
+      "name": "%plugin__custom-rhcl-console~Topology%",
+      "href": "/connectivity-link/topology",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-policies"
+    }
+  },
+  {
+    "type": "console.navigation/separator",
+    "properties": {
+      "id": "connectivity-link-separator",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-topology"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-api-products",
+      "name": "%plugin__custom-rhcl-console~API Products%",
+      "href": "/connectivity-link/api-products",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-separator"
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link",
+      "component": { "$codeRef": "OverviewPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/gateways",
+      "component": { "$codeRef": "GatewayListPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "path": "/connectivity-link/gateways/:ns/:name",
+      "component": { "$codeRef": "GatewayDetailPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/httproutes",
+      "component": { "$codeRef": "HTTPRouteListPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "path": "/connectivity-link/httproutes/:ns/:name",
+      "component": { "$codeRef": "HTTPRouteDetailPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/policies",
+      "component": { "$codeRef": "PolicyListPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/topology",
+      "component": { "$codeRef": "TopologyPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/api-products",
+      "component": { "$codeRef": "APIProductListPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "path": "/connectivity-link/api-products/:ns/:name",
+      "component": { "$codeRef": "APIOverviewPage" }
+    }
+  }
+]

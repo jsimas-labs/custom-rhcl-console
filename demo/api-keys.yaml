@@ -1,0 +1,47 @@
+apiVersion: devportal.kuadrant.io/v1alpha1
+kind: APIKey
+metadata:
+  name: demo-key-alice
+  namespace: console-demo-resources
+  labels:
+    app.kubernetes.io/part-of: console-demo-resources
+spec:
+  apiProductRef:
+    name: demo-petstore-api
+  planTier: Free
+  requestedBy:
+    userId: alice
+    email: alice@example.com
+  useCase: "Integration testing for pet inventory service"
+---
+apiVersion: devportal.kuadrant.io/v1alpha1
+kind: APIKey
+metadata:
+  name: demo-key-bob
+  namespace: console-demo-resources
+  labels:
+    app.kubernetes.io/part-of: console-demo-resources
+spec:
+  apiProductRef:
+    name: demo-petstore-api
+  planTier: Pro
+  requestedBy:
+    userId: bob
+    email: bob@example.com
+  useCase: "Production order processing pipeline"
+---
+apiVersion: devportal.kuadrant.io/v1alpha1
+kind: APIKey
+metadata:
+  name: demo-key-carol
+  namespace: console-demo-resources
+  labels:
+    app.kubernetes.io/part-of: console-demo-resources
+spec:
+  apiProductRef:
+    name: demo-petstore-api
+  planTier: Free
+  requestedBy:
+    userId: carol
+    email: carol@example.com
+  useCase: "Mobile app prototype for pet adoption"

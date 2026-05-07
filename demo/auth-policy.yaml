@@ -1,0 +1,24 @@
+apiVersion: kuadrant.io/v1
+kind: AuthPolicy
+metadata:
+  name: demo-auth
+  namespace: console-demo-resources
+  labels:
+    app.kubernetes.io/part-of: console-demo-resources
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: demo-api-route
+  defaults:
+    rules:
+      authentication:
+        api-key-users:
+          apiKey:
+            selector:
+              matchLabels:
+                app.kubernetes.io/managed-by: console-demo-resources
+            allNamespaces: false
+          credentials:
+            authorizationHeader:
+              prefix: "Bearer"

@@ -1,0 +1,19 @@
+apiVersion: kuadrant.io/v1
+kind: TLSPolicy
+metadata:
+  name: demo-tls
+  namespace: console-demo-resources
+  labels:
+    app.kubernetes.io/part-of: console-demo-resources
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: demo-gateway
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: api.demo.example.com
+  duration: "2160h"
+  renewBefore: "360h"

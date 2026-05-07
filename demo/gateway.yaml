@@ -1,0 +1,29 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: demo-gateway
+  namespace: console-demo-resources
+  labels:
+    app.kubernetes.io/part-of: console-demo-resources
+spec:
+  gatewayClassName: openshift-default
+  listeners:
+    - name: https-listener
+      hostname: api.demo.example.com
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: demo-tls-cert
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: http-listener
+      hostname: api.demo.example.com
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same

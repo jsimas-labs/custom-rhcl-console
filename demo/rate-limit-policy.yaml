@@ -1,0 +1,20 @@
+apiVersion: kuadrant.io/v1
+kind: RateLimitPolicy
+metadata:
+  name: demo-rate-limit
+  namespace: console-demo-resources
+  labels:
+    app.kubernetes.io/part-of: console-demo-resources
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: demo-api-route
+  defaults:
+    limits:
+      per-user:
+        rates:
+          - limit: 100
+            window: "60s"
+        counters:
+          - expression: auth.identity.userid

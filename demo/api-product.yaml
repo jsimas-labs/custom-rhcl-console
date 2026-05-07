@@ -1,0 +1,31 @@
+apiVersion: devportal.kuadrant.io/v1alpha1
+kind: APIProduct
+metadata:
+  name: demo-petstore-api
+  namespace: console-demo-resources
+  labels:
+    app.kubernetes.io/part-of: console-demo-resources
+spec:
+  displayName: "Petstore API"
+  description: "A fully featured demo API for managing pet store inventory, orders, and customer accounts."
+  version: "1.2.0"
+  tags:
+    - pets
+    - e-commerce
+    - demo
+    - rest
+  publishStatus: Published
+  approvalMode: manual
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: demo-api-route
+    namespace: console-demo-resources
+  documentation:
+    url: "https://docs.example.com/petstore"
+    swaggerUI: "https://api.demo.example.com/swagger-ui"
+    gitRepository: "https://github.com/example/petstore-api"
+  contact:
+    team: "Platform Engineering"
+    email: "platform-eng@example.com"
+    url: "https://teams.example.com/platform-engineering"
