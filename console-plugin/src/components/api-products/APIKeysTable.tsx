@@ -8,6 +8,7 @@ import {
   Spinner,
   EmptyState,
   EmptyStateBody,
+  Title,
   Tooltip,
   Flex,
   FlexItem,
@@ -105,7 +106,10 @@ const APIKeysTable: React.FC<APIKeysTableProps> = ({
       </CardTitle>
       <CardBody>
         {filteredKeys.length === 0 ? (
-          <EmptyState variant="sm" titleText={t('No API keys')} headingLevel="h4">
+          <EmptyState variant="sm">
+            <Title headingLevel="h4" size="md">
+              {t('No API keys')}
+            </Title>
             <EmptyStateBody>
               {t('No API key requests have been submitted for this API product.')}
             </EmptyStateBody>

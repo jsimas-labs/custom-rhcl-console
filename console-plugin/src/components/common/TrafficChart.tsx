@@ -7,7 +7,7 @@ import {
   ChartLine,
   ChartVoronoiContainer,
   ChartThemeColor,
-} from '@patternfly/react-charts/victory';
+} from '@patternfly/react-charts';
 import { Card, CardTitle, CardBody, Spinner } from '@patternfly/react-core';
 import { useTranslation } from 'react-i18next';
 import { usePrometheusRange, TimeSeries } from '../../hooks/usePrometheusRange';

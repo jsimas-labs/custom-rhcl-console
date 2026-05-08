@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useNavigate } from 'react-router';
+import { useHistory } from 'react-router-dom';
 import { SearchInput, Popper, Menu, MenuContent, MenuList, MenuItem } from '@patternfly/react-core';
 import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import { useTranslation } from 'react-i18next';
@@ -16,10 +16,9 @@ interface SearchResult {
 
 const HostnameSearch: React.FC = () => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
-  const navigate = useNavigate();
+  const history = useHistory();
   const [searchValue, setSearchValue] = React.useState('');
   const [isOpen, setIsOpen] = React.useState(false);
-  const searchInputRef = React.useRef<HTMLDivElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
 
   const [gateways] = useK8sWatchResource<Gateway[]>({
@@ -70,7 +69,7 @@ const HostnameSearch: React.FC = () => {
 
   const onSelect = (result: SearchResult) => {
     const basePath = result.kind === 'Gateway' ? 'gateways' : 'httproutes';
-    navigate(`/connectivity-link/${basePath}/${result.namespace}/${result.name}`);
+    history.push(`/connectivity-link/${basePath}/${result.namespace}/${result.name}`);
     setSearchValue('');
     setIsOpen(false);
   };
@@ -94,31 +93,31 @@ const HostnameSearch: React.FC = () => {
     </div>
   );
 
+  const searchInput = (
+    <SearchInput
+      placeholder={t('Search by hostname')}
+      value={searchValue}
+      onChange={(_e, val) => {
+        setSearchValue(val);
+        setIsOpen(val.length >= 2 && results.length > 0);
+      }}
+      onClear={() => {
+        setSearchValue('');
+        setIsOpen(false);
+      }}
+      onFocus={() => {
+        if (results.length > 0) setIsOpen(true);
+      }}
+    />
+  );
+
   return (
-    <div ref={searchInputRef}>
-      <SearchInput
-        placeholder={t('Search by hostname')}
-        value={searchValue}
-        onChange={(_e, val) => {
-          setSearchValue(val);
-          setIsOpen(val.length >= 2 && results.length > 0);
-        }}
-        onClear={() => {
-          setSearchValue('');
-          setIsOpen(false);
-        }}
-        onFocus={() => {
-          if (results.length > 0) setIsOpen(true);
-        }}
-      />
-      <Popper
-        triggerRef={searchInputRef}
-        popper={menu}
-        popperRef={menuRef}
-        isVisible={isOpen && results.length > 0}
-        appendTo={() => document.body}
-      />
-    </div>
+    <Popper
+      trigger={searchInput}
+      popper={menu}
+      isVisible={isOpen && results.length > 0}
+      appendTo={() => document.body}
+    />
   );
 };
 

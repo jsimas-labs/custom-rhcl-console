@@ -6,6 +6,7 @@ import {
   Label,
   EmptyState,
   EmptyStateBody,
+  Title,
   Spinner,
   DescriptionList,
   DescriptionListGroup,
@@ -42,7 +43,10 @@ const DNSHealthCard: React.FC<DNSHealthCardProps> = ({ gatewayName, namespace })
       <Card>
         <CardTitle>{t('DNS health')}</CardTitle>
         <CardBody>
-          <EmptyState variant="sm" titleText={t('Error loading DNS records')} headingLevel="h3">
+          <EmptyState variant="sm">
+            <Title headingLevel="h3" size="md">
+              {t('Error loading DNS records')}
+            </Title>
             <EmptyStateBody>{error.message}</EmptyStateBody>
           </EmptyState>
         </CardBody>
@@ -55,7 +59,10 @@ const DNSHealthCard: React.FC<DNSHealthCardProps> = ({ gatewayName, namespace })
       <Card>
         <CardTitle>{t('DNS health')}</CardTitle>
         <CardBody>
-          <EmptyState variant="sm" titleText={t('No DNS policies')} headingLevel="h3">
+          <EmptyState variant="sm">
+            <Title headingLevel="h3" size="md">
+              {t('No DNS policies')}
+            </Title>
             <EmptyStateBody>
               {t('No DNSPolicy is attached to this Gateway.')}
             </EmptyStateBody>

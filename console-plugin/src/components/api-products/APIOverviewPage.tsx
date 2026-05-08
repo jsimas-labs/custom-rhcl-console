@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { useParams, Link } from 'react-router';
+import { useParams } from 'react-router-dom-v5-compat';
+import { Link } from 'react-router-dom';
 import {
   PageSection,
   Title,

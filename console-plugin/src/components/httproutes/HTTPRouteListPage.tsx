@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link } from 'react-router';
+import { Link } from 'react-router-dom';
 import { PageSection, Title, Spinner, Bullseye } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useTranslation } from 'react-i18next';
@@ -36,7 +36,7 @@ const HTTPRouteListPage: React.FC = () => {
       const lower = searchValue.toLowerCase();
       items = items.filter((r) => {
         const name = (r.metadata?.name || '').toLowerCase();
-        const hostnames = r.spec.hostnames || [];
+        const hostnames = r.spec?.hostnames || [];
         return (
           name.includes(lower) ||
           hostnames.some((h) => h.toLowerCase().includes(lower))
@@ -64,10 +64,10 @@ const HTTPRouteListPage: React.FC = () => {
   if (!loaded) {
     return (
       <>
-        <PageSection variant="default">
+        <PageSection className="co-m-pane__body">
           <Title headingLevel="h1">{t('HTTPRoutes')}</Title>
         </PageSection>
-        <PageSection isFilled>
+        <PageSection isFilled className="co-m-pane__body">
           <Bullseye><Spinner size="xl" /></Bullseye>
         </PageSection>
       </>
@@ -77,10 +77,10 @@ const HTTPRouteListPage: React.FC = () => {
   if (!hasAccess) {
     return (
       <>
-        <PageSection variant="default">
+        <PageSection className="co-m-pane__body">
           <Title headingLevel="h1">{t('HTTPRoutes')}</Title>
         </PageSection>
-        <PageSection>
+        <PageSection className="co-m-pane__body">
           <EmptyRBACState
             resource={t('HTTPRoutes')}
             verb="list"
@@ -94,10 +94,10 @@ const HTTPRouteListPage: React.FC = () => {
 
   return (
     <>
-      <PageSection variant="default">
+      <PageSection className="co-m-pane__body">
         <Title headingLevel="h1">{t('HTTPRoutes')}</Title>
       </PageSection>
-      <PageSection>
+      <PageSection className="co-m-pane__body">
         <FilterToolbar
           searchValue={searchValue}
           onSearchChange={setSearchValue}
@@ -123,9 +123,9 @@ const HTTPRouteListPage: React.FC = () => {
             {filtered.map((route) => {
               const ns = route.metadata?.namespace || '';
               const name = route.metadata?.name || '';
-              const hostnames = route.spec.hostnames || [];
-              const parentRef = route.spec.parentRefs?.[0];
-              const backendCount = (route.spec.rules || []).reduce(
+              const hostnames = route.spec?.hostnames || [];
+              const parentRef = route.spec?.parentRefs?.[0];
+              const backendCount = (route.spec?.rules || []).reduce(
                 (acc, rule) => acc + (rule.backendRefs?.length || 0),
                 0,
               );

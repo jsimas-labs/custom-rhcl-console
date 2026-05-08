@@ -1,0 +1,11 @@
+/* Override PF6 PageSection padding to match console's expected layout */
+.co-m-pane__body.pf-v6-c-page__main-section {
+  padding-inline-start: var(--pf-v6-global--spacer--lg, 1.5rem);
+  padding-inline-end: var(--pf-v6-global--spacer--lg, 1.5rem);
+}
+
+/* Ensure nested plugin pages have proper margins */
+.custom-rhcl-console-page .pf-v6-c-page__main-section {
+  padding-inline-start: var(--pf-v6-global--spacer--lg, 1.5rem);
+  padding-inline-end: var(--pf-v6-global--spacer--lg, 1.5rem);
+}

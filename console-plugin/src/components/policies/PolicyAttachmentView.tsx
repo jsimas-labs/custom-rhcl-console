@@ -7,6 +7,7 @@ import {
   Spinner,
   EmptyState,
   EmptyStateBody,
+  Title,
   Flex,
   FlexItem,
   DescriptionList,
@@ -41,7 +42,10 @@ export const PolicyAttachmentView: React.FC<PolicyAttachmentViewProps> = ({
 
   if (error) {
     return (
-      <EmptyState variant="sm" titleText={t('Error loading policies')} headingLevel="h3">
+      <EmptyState variant="sm">
+        <Title headingLevel="h3" size="md">
+          {t('Error loading policies')}
+        </Title>
         <EmptyStateBody>{error.message}</EmptyStateBody>
       </EmptyState>
     );
@@ -49,7 +53,10 @@ export const PolicyAttachmentView: React.FC<PolicyAttachmentViewProps> = ({
 
   if (policies.length === 0) {
     return (
-      <EmptyState variant="sm" titleText={t('No policies found')} headingLevel="h3">
+      <EmptyState variant="sm">
+        <Title headingLevel="h3" size="md">
+          {t('No policies found')}
+        </Title>
         <EmptyStateBody>
           {t('No policies are attached to this {{kind}}.', { kind: targetKind })}
         </EmptyStateBody>

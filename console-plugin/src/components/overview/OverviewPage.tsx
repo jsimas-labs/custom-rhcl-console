@@ -1,4 +1,5 @@
 import * as React from 'react';
+import '../../plugin.css';
 import {
   PageSection,
   Title,
@@ -42,10 +43,10 @@ const OverviewPage: React.FC = () => {
   if (!gwLoaded || !routeLoaded) {
     return (
       <>
-        <PageSection variant="default">
+        <PageSection className="co-m-pane__body">
           <Title headingLevel="h1">{t('Connectivity Link Overview')}</Title>
         </PageSection>
-        <PageSection isFilled>
+        <PageSection isFilled className="co-m-pane__body">
           <Spinner size="xl" />
         </PageSection>
       </>
@@ -55,10 +56,10 @@ const OverviewPage: React.FC = () => {
   if (!gwAccess) {
     return (
       <>
-        <PageSection variant="default">
+        <PageSection className="co-m-pane__body">
           <Title headingLevel="h1">{t('Connectivity Link Overview')}</Title>
         </PageSection>
-        <PageSection>
+        <PageSection className="co-m-pane__body">
           <EmptyRBACState
             resource={t('Gateways')}
             verb="list"
@@ -82,7 +83,7 @@ const OverviewPage: React.FC = () => {
 
   return (
     <>
-      <PageSection variant="default">
+      <PageSection className="co-m-pane__body">
         <Flex>
           <FlexItem grow={{ default: 'grow' }}>
             <Title headingLevel="h1">{t('Connectivity Link Overview')}</Title>
@@ -92,7 +93,7 @@ const OverviewPage: React.FC = () => {
           </FlexItem>
         </Flex>
       </PageSection>
-      <PageSection>
+      <PageSection className="co-m-pane__body">
         <Grid hasGutter>
           <GridItem span={4}>
             <Card>

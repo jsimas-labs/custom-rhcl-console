@@ -58,7 +58,10 @@ export const EffectivePolicyStack: React.FC<EffectivePolicyStackProps> = ({
 
   if (effectiveStack.length === 0) {
     return (
-      <EmptyState variant="sm" titleText={t('No policies found')} headingLevel="h3">
+      <EmptyState variant="sm">
+        <Title headingLevel="h3" size="md">
+          {t('No policies found')}
+        </Title>
         <EmptyStateBody>
           {t('No policies affect this HTTPRoute.')}
         </EmptyStateBody>

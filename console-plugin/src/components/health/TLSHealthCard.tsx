@@ -6,6 +6,7 @@ import {
   Label,
   EmptyState,
   EmptyStateBody,
+  Title,
   Spinner,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
@@ -53,7 +54,10 @@ const TLSHealthCard: React.FC<TLSHealthCardProps> = ({ gateway, namespace }) => 
       <Card>
         <CardTitle>{t('TLS health')}</CardTitle>
         <CardBody>
-          <EmptyState variant="sm" titleText={t('Error loading certificates')} headingLevel="h3">
+          <EmptyState variant="sm">
+            <Title headingLevel="h3" size="md">
+              {t('Error loading certificates')}
+            </Title>
             <EmptyStateBody>{error.message}</EmptyStateBody>
           </EmptyState>
         </CardBody>
@@ -66,7 +70,10 @@ const TLSHealthCard: React.FC<TLSHealthCardProps> = ({ gateway, namespace }) => 
       <Card>
         <CardTitle>{t('TLS health')}</CardTitle>
         <CardBody>
-          <EmptyState variant="sm" titleText={t('No TLS certificates')} headingLevel="h3">
+          <EmptyState variant="sm">
+            <Title headingLevel="h3" size="md">
+              {t('No TLS certificates')}
+            </Title>
             <EmptyStateBody>
               {t('No TLS listeners or certificates found for this Gateway.')}
             </EmptyStateBody>

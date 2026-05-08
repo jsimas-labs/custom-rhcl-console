@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { useParams, Link } from 'react-router';
+import { useParams } from 'react-router-dom-v5-compat';
+import { Link } from 'react-router-dom';
 import {
   PageSection,
   Title,
@@ -46,23 +47,23 @@ const HTTPRouteDetailPage: React.FC = () => {
     namespace: ns,
   });
 
-  if (!loaded || !route) {
+  if (!loaded || !route || !route.spec) {
     return (
       <>
-        <PageSection isFilled>
+        <PageSection isFilled className="co-m-pane__body">
           <Bullseye><Spinner size="xl" /></Bullseye>
         </PageSection>
       </>
     );
   }
 
-  const hostnames = route.spec.hostnames || [];
-  const parentRef = route.spec.parentRefs?.[0];
+  const hostnames = route.spec?.hostnames || [];
+  const parentRef = route.spec?.parentRefs?.[0];
   const parentConditions = route.status?.parents?.[0]?.conditions;
 
   return (
     <>
-      <PageSection variant="default">
+      <PageSection className="co-m-pane__body">
         <Breadcrumb>
           <BreadcrumbItem>
             <Link to="/connectivity-link/httproutes">{t('HTTPRoutes')}</Link>
@@ -75,7 +76,7 @@ const HTTPRouteDetailPage: React.FC = () => {
           {name} <StatusLabel conditions={parentConditions} />
         </Title>
       </PageSection>
-      <PageSection>
+      <PageSection className="co-m-pane__body">
         <Tabs
           activeKey={activeTab}
           onSelect={(_e, idx) => setActiveTab(idx as number)}

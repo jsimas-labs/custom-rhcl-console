@@ -11,6 +11,7 @@ import {
   DescriptionListDescription,
   EmptyState,
   EmptyStateBody,
+  Title,
 } from '@patternfly/react-core';
 import { useTranslation } from 'react-i18next';
 import { DiscoveredPlan } from '../../types';
@@ -24,7 +25,10 @@ const PlansCards: React.FC<PlansCardsProps> = ({ plans }) => {
 
   if (!plans || plans.length === 0) {
     return (
-      <EmptyState variant="sm" titleText={t('No plans available')} headingLevel="h4">
+      <EmptyState variant="sm">
+        <Title headingLevel="h4" size="md">
+          {t('No plans available')}
+        </Title>
         <EmptyStateBody>{t('No subscription plans are configured for this API.')}</EmptyStateBody>
       </EmptyState>
     );

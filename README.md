@@ -149,8 +149,12 @@ spec:
         - name: custom-rhcl-console
           image: $RHCL_CONSOLE_IMAGE
           ports:
-            - containerPort: 8080
+            - containerPort: 9001
               protocol: TCP
+          volumeMounts:
+            - name: serving-cert
+              mountPath: /var/serving-cert
+              readOnly: true
           resources:
             requests:
               cpu: 50m
@@ -158,6 +162,10 @@ spec:
             limits:
               cpu: 200m
               memory: 128Mi
+      volumes:
+        - name: serving-cert
+          secret:
+            secretName: custom-rhcl-console-cert
 ---
 apiVersion: v1
 kind: Service
@@ -166,12 +174,14 @@ metadata:
   namespace: $RHCL_CONSOLE_NS
   labels:
     app: custom-rhcl-console
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: custom-rhcl-console-cert
 spec:
   selector:
     app: custom-rhcl-console
   ports:
     - port: 9001
-      targetPort: 8080
+      targetPort: 9001
       protocol: TCP
 EOF
 ```

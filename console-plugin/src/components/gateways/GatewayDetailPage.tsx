@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { useParams, Link } from 'react-router';
+import { useParams } from 'react-router-dom-v5-compat';
+import { Link } from 'react-router-dom';
 import {
   PageSection,
   Title,
@@ -48,10 +49,10 @@ const GatewayDetailPage: React.FC = () => {
     namespace: ns,
   });
 
-  if (!loaded || !gateway) {
+  if (!loaded || !gateway || !gateway.spec) {
     return (
       <>
-        <PageSection isFilled>
+        <PageSection isFilled className="co-m-pane__body">
           <Bullseye><Spinner size="xl" /></Bullseye>
         </PageSection>
       </>
@@ -59,10 +60,11 @@ const GatewayDetailPage: React.FC = () => {
   }
 
   const hostnames = getGatewayExternalHostnames(gateway);
+  const listeners = gateway.spec?.listeners || [];
 
   return (
     <>
-      <PageSection variant="default">
+      <PageSection className="co-m-pane__body">
         <Breadcrumb>
           <BreadcrumbItem>
             <Link to="/connectivity-link/gateways">{t('Gateways')}</Link>
@@ -75,7 +77,7 @@ const GatewayDetailPage: React.FC = () => {
           {name} <StatusLabel conditions={gateway.status?.conditions} />
         </Title>
       </PageSection>
-      <PageSection>
+      <PageSection className="co-m-pane__body">
         <Tabs
           activeKey={activeTab}
           onSelect={(_e, idx) => setActiveTab(idx as number)}
@@ -99,13 +101,13 @@ const GatewayDetailPage: React.FC = () => {
                       <DescriptionListGroup>
                         <DescriptionListTerm>{t('Gateway class')}</DescriptionListTerm>
                         <DescriptionListDescription>
-                          {gateway.spec.gatewayClassName}
+                          {gateway.spec?.gatewayClassName || '-'}
                         </DescriptionListDescription>
                       </DescriptionListGroup>
                       <DescriptionListGroup>
                         <DescriptionListTerm>{t('Listeners')}</DescriptionListTerm>
                         <DescriptionListDescription>
-                          {gateway.spec.listeners.length}
+                          {listeners.length}
                         </DescriptionListDescription>
                       </DescriptionListGroup>
                       <DescriptionListGroup>
@@ -132,7 +134,7 @@ const GatewayDetailPage: React.FC = () => {
                         </Tr>
                       </Thead>
                       <Tbody>
-                        {gateway.spec.listeners.map((l) => (
+                        {listeners.map((l) => (
                           <Tr key={l.name}>
                             <Td>{l.name}</Td>
                             <Td>{l.port}</Td>
@@ -255,7 +257,7 @@ const GatewayRoutesTab: React.FC<{ gatewayName: string; namespace: string }> = (
 
   const filteredRoutes = React.useMemo(() => {
     return (routes || []).filter((r) =>
-      r.spec.parentRefs?.some(
+      r.spec?.parentRefs?.some(
         (ref) =>
           ref.name === gatewayName &&
           (!ref.namespace || ref.namespace === namespace),
@@ -286,7 +288,7 @@ const GatewayRoutesTab: React.FC<{ gatewayName: string; namespace: string }> = (
               </Link>
             </Td>
             <Td>{route.metadata?.namespace}</Td>
-            <Td>{(route.spec.hostnames || []).join(', ') || '-'}</Td>
+            <Td>{(route.spec?.hostnames || []).join(', ') || '-'}</Td>
             <Td>
               <StatusLabel conditions={route.status?.parents?.[0]?.conditions} />
             </Td>

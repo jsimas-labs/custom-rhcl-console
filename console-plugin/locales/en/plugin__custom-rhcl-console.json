@@ -22,6 +22,7 @@
   "Message": "Message",
   "Healthy": "Healthy",
   "Degraded": "Degraded",
+  "Failing": "Failing",
   "Progressing": "Progressing",
   "Unknown": "Unknown",
   "Programmed": "Programmed",

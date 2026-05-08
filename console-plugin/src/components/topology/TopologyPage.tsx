@@ -166,7 +166,10 @@ const TopologyPage: React.FC = () => {
           <Title headingLevel="h1">{t('Topology')}</Title>
         </PageSection>
         <PageSection>
-          <EmptyState variant="lg" titleText={t('No resources found')} headingLevel="h2">
+          <EmptyState variant="lg">
+            <Title headingLevel="h2" size="lg">
+              {t('No resources found')}
+            </Title>
             <EmptyStateBody>
               {t('No Gateways or HTTPRoutes found to display in the topology graph.')}
             </EmptyStateBody>

@@ -4,10 +4,12 @@ import {
   ToolbarContent,
   ToolbarItem,
   SearchInput,
-  MenuToggle,
   Select,
   SelectOption,
+  SelectList,
+  MenuToggle,
   MenuToggleElement,
+  Badge,
 } from '@patternfly/react-core';
 import { useTranslation } from 'react-i18next';
 
@@ -38,8 +40,30 @@ const FilterToolbar: React.FC<FilterToolbarProps> = ({
   const [nsOpen, setNsOpen] = React.useState(false);
   const [statusOpen, setStatusOpen] = React.useState(false);
 
-  const nsToggleRef = React.useRef<MenuToggleElement>(null);
-  const statusToggleRef = React.useRef<MenuToggleElement>(null);
+  const nsToggle = (toggleRef: React.Ref<MenuToggleElement>) => (
+    <MenuToggle
+      ref={toggleRef}
+      onClick={() => setNsOpen(!nsOpen)}
+      isExpanded={nsOpen}
+      style={{ minWidth: '150px' }}
+    >
+      {selectedNamespace || t('All namespaces')}
+    </MenuToggle>
+  );
+
+  const statusToggle = (toggleRef: React.Ref<MenuToggleElement>) => (
+    <MenuToggle
+      ref={toggleRef}
+      onClick={() => setStatusOpen(!statusOpen)}
+      isExpanded={statusOpen}
+      style={{ minWidth: '150px' }}
+    >
+      {t('Status')}
+      {selectedStatuses.length > 0 && (
+        <Badge isRead style={{ marginLeft: '8px' }}>{selectedStatuses.length}</Badge>
+      )}
+    </MenuToggle>
+  );
 
   return (
     <Toolbar clearAllFilters={() => {
@@ -61,28 +85,20 @@ const FilterToolbar: React.FC<FilterToolbarProps> = ({
           <ToolbarItem>
             <Select
               isOpen={nsOpen}
-              onOpenChange={setNsOpen}
-              toggle={(toggleRef) => (
-                <MenuToggle
-                  ref={toggleRef || nsToggleRef}
-                  onClick={() => setNsOpen(!nsOpen)}
-                  isExpanded={nsOpen}
-                >
-                  {selectedNamespace || t('All namespaces')}
-                </MenuToggle>
-              )}
+              onOpenChange={(open) => setNsOpen(open)}
               onSelect={(_e, value) => {
                 onNamespaceChange(value as string);
                 setNsOpen(false);
               }}
-              selected={selectedNamespace}
+              selected={selectedNamespace || ''}
+              toggle={nsToggle}
             >
-              <SelectOption value="">{t('All namespaces')}</SelectOption>
-              {namespaces.map((ns) => (
-                <SelectOption key={ns} value={ns}>
-                  {ns}
-                </SelectOption>
-              ))}
+              <SelectList>
+                <SelectOption value="">{t('All namespaces')}</SelectOption>
+                {namespaces.map((ns) => (
+                  <SelectOption key={ns} value={ns}>{ns}</SelectOption>
+                ))}
+              </SelectList>
             </Select>
           </ToolbarItem>
         )}
@@ -91,18 +107,7 @@ const FilterToolbar: React.FC<FilterToolbarProps> = ({
           <ToolbarItem>
             <Select
               isOpen={statusOpen}
-              onOpenChange={setStatusOpen}
-              toggle={(toggleRef) => (
-                <MenuToggle
-                  ref={toggleRef || statusToggleRef}
-                  onClick={() => setStatusOpen(!statusOpen)}
-                  isExpanded={statusOpen}
-                >
-                  {selectedStatuses.length > 0
-                    ? `${selectedStatuses.length} selected`
-                    : t('All statuses')}
-                </MenuToggle>
-              )}
+              onOpenChange={(open) => setStatusOpen(open)}
               onSelect={(_e, value) => {
                 const val = value as string;
                 if (selectedStatuses.includes(val)) {
@@ -111,17 +116,21 @@ const FilterToolbar: React.FC<FilterToolbarProps> = ({
                   onStatusChange([...selectedStatuses, val]);
                 }
               }}
+              selected={selectedStatuses}
+              toggle={statusToggle}
             >
-              {statusOptions.map((status) => (
-                <SelectOption
-                  key={status}
-                  value={status}
-                  hasCheckbox
-                  isSelected={selectedStatuses.includes(status)}
-                >
-                  {t(status)}
-                </SelectOption>
-              ))}
+              <SelectList>
+                {statusOptions.map((status) => (
+                  <SelectOption
+                    key={status}
+                    value={status}
+                    hasCheckbox
+                    isSelected={selectedStatuses.includes(status)}
+                  >
+                    {t(status)}
+                  </SelectOption>
+                ))}
+              </SelectList>
             </Select>
           </ToolbarItem>
         )}

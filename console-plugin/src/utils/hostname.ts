@@ -3,7 +3,7 @@ import { Gateway, GatewayStatusAddress } from '../types';
 export function getGatewayExternalHostnames(gateway: Gateway): string[] {
   const hostnames: string[] = [];
 
-  const addresses = gateway.status?.addresses || gateway.spec.addresses || [];
+  const addresses = gateway.status?.addresses || gateway.spec?.addresses || [];
   for (const addr of addresses) {
     if (addr.type === 'Hostname' || (!addr.type && !isIPAddress(addr.value))) {
       hostnames.push(addr.value);
@@ -11,7 +11,7 @@ export function getGatewayExternalHostnames(gateway: Gateway): string[] {
   }
 
   if (hostnames.length === 0) {
-    for (const listener of gateway.spec.listeners) {
+    for (const listener of gateway.spec?.listeners || []) {
       if (listener.hostname) {
         hostnames.push(listener.hostname);
       }

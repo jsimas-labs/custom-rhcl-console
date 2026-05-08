@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link } from 'react-router';
+import { Link } from 'react-router-dom';
 import { PageSection, Title, Spinner, Bullseye } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useTranslation } from 'react-i18next';
@@ -65,10 +65,10 @@ const GatewayListPage: React.FC = () => {
   if (!loaded) {
     return (
       <>
-        <PageSection variant="default">
+        <PageSection className="co-m-pane__body">
           <Title headingLevel="h1">{t('Gateways')}</Title>
         </PageSection>
-        <PageSection isFilled>
+        <PageSection isFilled className="co-m-pane__body">
           <Bullseye><Spinner size="xl" /></Bullseye>
         </PageSection>
       </>
@@ -78,10 +78,10 @@ const GatewayListPage: React.FC = () => {
   if (!hasAccess) {
     return (
       <>
-        <PageSection variant="default">
+        <PageSection className="co-m-pane__body">
           <Title headingLevel="h1">{t('Gateways')}</Title>
         </PageSection>
-        <PageSection>
+        <PageSection className="co-m-pane__body">
           <EmptyRBACState
             resource={t('Gateways')}
             verb="list"
@@ -95,10 +95,10 @@ const GatewayListPage: React.FC = () => {
 
   return (
     <>
-      <PageSection variant="default">
+      <PageSection className="co-m-pane__body">
         <Title headingLevel="h1">{t('Gateways')}</Title>
       </PageSection>
-      <PageSection>
+      <PageSection className="co-m-pane__body">
         <FilterToolbar
           searchValue={searchValue}
           onSearchChange={setSearchValue}
@@ -143,7 +143,7 @@ const GatewayRow: React.FC<{ gateway: Gateway }> = ({ gateway }) => {
         <Link to={`/connectivity-link/gateways/${ns}/${name}`}>{name}</Link>
       </Td>
       <Td>{ns}</Td>
-      <Td>{gateway.spec.gatewayClassName}</Td>
+      <Td>{gateway.spec?.gatewayClassName || '-'}</Td>
       <Td>
         <StatusLabel conditions={gateway.status?.conditions} />
         {policies.length > 0 && (
@@ -152,7 +152,7 @@ const GatewayRow: React.FC<{ gateway: Gateway }> = ({ gateway }) => {
           </span>
         )}
       </Td>
-      <Td>{gateway.spec.listeners.length}</Td>
+      <Td>{gateway.spec?.listeners?.length || 0}</Td>
       <Td><HostnameCell hostnames={hostnames} /></Td>
     </Tr>
   );
