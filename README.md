@@ -117,13 +117,44 @@ podman push quay.io/<org>/custom-rhcl-console:latest
 The two-stage Dockerfile uses `ubi9/nodejs-22` for the build and
 `ubi9/nginx-120` for the runtime image.
 
+### Running the container image locally
+
+The nginx configuration requires TLS certificates that are normally
+mounted by OpenShift. To run the image locally with Podman or Docker,
+generate a self-signed certificate and mount it into the container:
+
+```bash
+# 1. Generate a self-signed certificate
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /tmp/tls.key -out /tmp/tls.crt \
+  -subj "/CN=localhost"
+
+# 2. Run the container with the certificate mounted
+podman run \
+  -v /tmp/tls.crt:/var/serving-cert/tls.crt:Z \
+  -v /tmp/tls.key:/var/serving-cert/tls.key:Z \
+  -p 9001:9001 \
+  quay.io/<org>/custom-rhcl-console:latest
+```
+
+The plugin is then available at `https://localhost:9001` (accept the
+self-signed certificate warning in your browser).
+
+A pre-generated Kubernetes secret YAML is also available at
+`console-plugin/serving-cert-secret.yaml` for convenience when deploying
+to a cluster without the OpenShift service-CA operator:
+
+```bash
+oc apply -f console-plugin/serving-cert-secret.yaml
+```
+
 ## Deploying to OpenShift
 
 ### 1. Create namespace and deploy the plugin server
 
 ```bash
 export RHCL_CONSOLE_NS=custom-rhcl-console
-export RHCL_CONSOLE_IMAGE=quay.io/<org>/custom-rhcl-console:latest
+export RHCL_CONSOLE_IMAGE=quay.io/jsimas/custom-rhcl-console:1.1
 
 oc new-project "$RHCL_CONSOLE_NS" || true
 

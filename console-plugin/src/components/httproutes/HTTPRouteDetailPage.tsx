@@ -1,7 +1,6 @@
 import * as React from 'react';
 import '../../plugin.css';
-import { useParams } from 'react-router-dom-v5-compat';
-import { Link } from 'react-router-dom';
+import { Link, useRouteMatch } from 'react-router-dom';
 import {
   PageSection,
   Title,
@@ -38,7 +37,9 @@ import { PolicyAttachmentView } from '../policies/PolicyAttachmentView';
 import { EffectivePolicyStack } from '../policies/EffectivePolicyStack';
 
 const HTTPRouteDetailPage: React.FC = () => {
-  const { ns, name } = useParams<{ ns: string; name: string }>();
+  const match = useRouteMatch<{ ns: string; name: string }>('/connectivity-link/httproutes/:ns/:name');
+  const ns = match?.params?.ns;
+  const name = match?.params?.name;
   const { t } = useTranslation('plugin__custom-rhcl-console');
   const [activeTab, setActiveTab] = React.useState(0);
 
