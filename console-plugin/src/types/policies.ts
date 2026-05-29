@@ -238,7 +238,6 @@ export function isSpecializedPolicyKind(kind: string): kind is SpecializedPolicy
  * call site without dropping the autocomplete suggestions for the specialized
  * kinds.
  */
-// eslint-disable-next-line @typescript-eslint/ban-types
 export type PolicyKind = SpecializedPolicyKind | (string & {});
 
 export interface PolicyAttachment {
