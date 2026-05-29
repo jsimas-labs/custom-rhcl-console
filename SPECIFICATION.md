@@ -299,7 +299,7 @@ without exposure to raw YAML or low-level status conditions.
   PatternFly primitives and never re-implement focus / keyboard handling.
 - **NFR-006 (i18n)** All user-visible strings MUST be routed through the
   Console's `react-i18next` setup. Ship `en` only in v1; structure the
-  catalog so `pt-BR` can be added without code changes for the BB demo.
+  catalog so `pt-BR` can be added without code changes for the  demo.
 - **NFR-007 (compat)** Target OpenShift `4.19+`. The plugin's
   `consolePlugin.compatibleVersions` MUST express that constraint.
 - **NFR-008 (docs)** Per `AGENTS.md`: all repo content (code comments, docs,
@@ -496,7 +496,7 @@ will update.
   `AuthPolicy`" is the only edit affordance, or extend to creating a default
   `RateLimitPolicy` from a wizard.
 - **Q5** Localization — English-only in v1 (per AGENTS.md), with `pt-BR` as
-  a stretch goal for the BB demo? Affects NFR-006.
+  a stretch goal for the  demo? Affects NFR-006.
 - **Q6** Multi-cluster — confirm out-of-scope for v1 (per section 1.3).
 - **Q7** Build pipeline — S2I (Node base image) or Dockerfile? Project
   convention is mixed (`banking-api` uses Quarkus S2I; `mobile-bank` is
