@@ -173,12 +173,33 @@ export interface TLSPolicy extends K8sResourceCommon {
   };
 }
 
+/**
+ * A policy resource the console did NOT compile-time know about (BackendTLSPolicy
+ * on OCP 4.22, any future Kuadrant / Gateway API policy). Discovered at runtime
+ * via the GEP-713 CRD label. Carries only the fields every Gateway API policy
+ * shares: target references plus standard conditions. Specialized renderers
+ * (TLS expiry, DNS propagation, rate-limit RPS, etc.) only apply to the known
+ * kinds above; everything else falls back to the generic policy card.
+ */
+export interface GenericPolicy extends K8sResourceCommon {
+  spec?: {
+    targetRef?: PolicyTargetReference;
+    targetRefs?: PolicyTargetReference[];
+  };
+  status?: {
+    conditions?: K8sCondition[];
+  };
+}
+
 export type AnyPolicy =
   | AuthPolicy
   | RateLimitPolicy
   | TokenRateLimitPolicy
   | DNSPolicy
   | TLSPolicy;
+
+/** Discriminator allowing UI components to render either the specialized cards or the generic fallback. */
+export type AnyPolicyOrGeneric = AnyPolicy | GenericPolicy;
 
 export type PolicyKind =
   | 'AuthPolicy'

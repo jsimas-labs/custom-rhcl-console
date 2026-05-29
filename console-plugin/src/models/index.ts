@@ -78,6 +78,16 @@ export const APIKeyGVK: K8sGroupVersionKind = {
   kind: 'APIKey',
 };
 
+/**
+ * The set of policy GVKs for which the console ships **specialized renderers**
+ * (TLS expiry card, rate-limit RPS panel, etc.). This is NOT an exhaustive
+ * inventory of attachable policies — for runtime enumeration of every policy
+ * CRD on the cluster (BackendTLSPolicy on OCP 4.22, any future Kuadrant
+ * policy), use `useDiscoveredPolicyCRDs()` which follows the Gateway API
+ * GEP-713 label convention. New code that needs "every attached policy"
+ * SHOULD call the discovery hook and treat unknown kinds via the
+ * `GenericPolicy` renderer.
+ */
 export const ALL_POLICY_GVKS = [
   AuthPolicyGVK,
   RateLimitPolicyGVK,
