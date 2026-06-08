@@ -11,13 +11,18 @@ import {
   DescriptionListTerm,
   DescriptionListDescription,
   Divider,
+  Tooltip,
 } from '@patternfly/react-core';
 import { useTranslation } from 'react-i18next';
 import { ResolvedBackend } from '../../types/backends';
 import { RouteSyntheticProbe } from './RouteSyntheticProbe';
+import { useBackendTraffic, BackendTrafficData } from '../../hooks/useBackendTraffic';
+import type { TFunction } from 'i18next';
 
 interface BackendStatusCardProps {
   backend: ResolvedBackend;
+  routeName: string;
+  routeNamespace: string;
   routeUid: string | undefined;
   routeHostname: string;
   defaultPath: string;
@@ -30,9 +35,15 @@ interface BackendStatusCardProps {
  * `ResolvedRefs` + ready endpoint count.
  */
 export const BackendStatusCard: React.FC<BackendStatusCardProps> = ({
-  backend, routeUid, routeHostname, defaultPath,
+  backend, routeName, routeNamespace, routeUid, routeHostname, defaultPath,
 }) => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
+  const { data: traffic, loaded: trafficLoaded, metricsAvailable } = useBackendTraffic(
+    routeNamespace,
+    routeName,
+    backend.namespace,
+    backend.name,
+  );
 
   // At-a-glance health: resolved AND at least one ready endpoint.
   // Yellow when resolved but ZERO ready. Red when not resolved or service missing.
@@ -105,6 +116,26 @@ export const BackendStatusCard: React.FC<BackendStatusCardProps> = ({
               )}
             </DescriptionListDescription>
           </DescriptionListGroup>
+          <DescriptionListGroup>
+            <DescriptionListTerm>
+              <Tooltip content={t('Real traffic flowing to this backend from this HTTPRoute, last 5 minutes. Read from cluster Prometheus via the Istio request metrics. Updates every 30 s.')}>
+                <span>{t('Traffic (5m)')}</span>
+              </Tooltip>
+            </DescriptionListTerm>
+            <DescriptionListDescription>
+              {!trafficLoaded ? (
+                <small style={{ color: 'var(--pf-t--global--color--nonstatus--gray--default)' }}>
+                  {t('Loading…')}
+                </small>
+              ) : !metricsAvailable ? (
+                <small style={{ color: 'var(--pf-t--global--color--nonstatus--gray--default)' }}>
+                  {t('Metrics unavailable on this cluster')}
+                </small>
+              ) : (
+                <BackendTrafficStats traffic={traffic} t={t} />
+              )}
+            </DescriptionListDescription>
+          </DescriptionListGroup>
           {backend.podNames.length > 0 && (
             <DescriptionListGroup>
               <DescriptionListTerm>{t('Pods')}</DescriptionListTerm>
@@ -134,5 +165,44 @@ export const BackendStatusCard: React.FC<BackendStatusCardProps> = ({
         />
       </CardBody>
     </Card>
+  );
+};
+
+// Small inline stats strip for the "Traffic (5m)" row. Three numbers in a
+// row so the operator can scan req rate, success%, error rate without a
+// chart. Success% colours by threshold (green/orange/red). Error rate is
+// always shown — zero is a valid "no errors" signal worth seeing.
+const BackendTrafficStats: React.FC<{ traffic: BackendTrafficData; t: TFunction }> = ({ traffic, t }) => {
+  const { reqRate, successRate, errorRate } = traffic;
+  const reqStr = reqRate !== null ? `${reqRate.toFixed(2)} req/s` : '—';
+  const succStr = successRate !== null ? `${successRate.toFixed(1)}%` : '—';
+  const errStr = errorRate !== null ? `${errorRate.toFixed(3)} req/s` : '—';
+  const succColor: 'green' | 'orange' | 'red' | 'grey' =
+    successRate === null ? 'grey'
+    : successRate >= 99 ? 'green'
+    : successRate >= 95 ? 'orange'
+    : 'red';
+  const errColor: 'green' | 'orange' | 'red' =
+    errorRate === null || errorRate === 0 ? 'green'
+    : errorRate < 0.1 ? 'orange'
+    : 'red';
+  return (
+    <Flex spaceItems={{ default: 'spaceItemsLg' }} alignItems={{ default: 'alignItemsCenter' }}>
+      <FlexItem>
+        <Tooltip content={t('Request rate to this backend, last 5 minutes')}>
+          <Label color="blue" isCompact>{reqStr}</Label>
+        </Tooltip>
+      </FlexItem>
+      <FlexItem>
+        <Tooltip content={t('Share of 2xx/3xx responses, last 5 minutes')}>
+          <Label color={succColor} isCompact>{t('{{v}} success', { v: succStr })}</Label>
+        </Tooltip>
+      </FlexItem>
+      <FlexItem>
+        <Tooltip content={t('5xx error rate, last 5 minutes')}>
+          <Label color={errColor} isCompact>{t('{{v}} 5xx', { v: errStr })}</Label>
+        </Tooltip>
+      </FlexItem>
+    </Flex>
   );
 };

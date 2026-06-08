@@ -111,6 +111,8 @@ export const BackendsTab: React.FC<BackendsTabProps> = ({ route }) => {
         <FlexItem key={`${b.namespace}/${b.name}-${idx}`}>
           <BackendStatusCard
             backend={b}
+            routeName={route?.metadata?.name || ''}
+            routeNamespace={route?.metadata?.namespace || ''}
             routeUid={routeUid}
             routeHostname={hostname}
             defaultPath={defaultPath}
