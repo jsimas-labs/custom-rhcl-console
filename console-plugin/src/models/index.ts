@@ -66,6 +66,12 @@ export const ServiceGVK: K8sGroupVersionKind = {
   kind: 'Service',
 };
 
+export const EndpointSliceGVK: K8sGroupVersionKind = {
+  group: 'discovery.k8s.io',
+  version: 'v1',
+  kind: 'EndpointSlice',
+};
+
 export const APIProductGVK: K8sGroupVersionKind = {
   group: 'devportal.kuadrant.io',
   version: 'v1alpha1',

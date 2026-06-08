@@ -34,6 +34,7 @@ import StatusLabel from '../common/StatusLabel';
 import TrafficPanel from '../common/TrafficPanel';
 import { PolicyAttachmentView } from '../policies/PolicyAttachmentView';
 import { EffectivePolicyStack } from '../policies/EffectivePolicyStack';
+import { BackendsTab } from './BackendsTab';
 
 const HTTPRouteDetailPage: React.FC = () => {
   const { ns, name } = useParams<{ ns: string; name: string }>();
@@ -181,7 +182,13 @@ const HTTPRouteDetailPage: React.FC = () => {
             </div>
           </Tab>
 
-          <Tab eventKey={2} title={<TabTitleText>{t('Effective policy stack')}</TabTitleText>}>
+          <Tab eventKey={2} title={<TabTitleText>{t('Backends')}</TabTitleText>}>
+            <div style={{ marginTop: 16 }}>
+              <BackendsTab route={route} />
+            </div>
+          </Tab>
+
+          <Tab eventKey={3} title={<TabTitleText>{t('Effective policy stack')}</TabTitleText>}>
             <div style={{ marginTop: 16 }}>
               <EffectivePolicyStack
                 routeName={name || ''}
@@ -192,13 +199,13 @@ const HTTPRouteDetailPage: React.FC = () => {
             </div>
           </Tab>
 
-          <Tab eventKey={3} title={<TabTitleText>{t('Metrics')}</TabTitleText>}>
+          <Tab eventKey={4} title={<TabTitleText>{t('Metrics')}</TabTitleText>}>
             <div style={{ marginTop: 16 }}>
               <TrafficPanel kind="HTTPRoute" name={name || ''} namespace={ns || ''} />
             </div>
           </Tab>
 
-          <Tab eventKey={4} title={<TabTitleText>{t('YAML')}</TabTitleText>}>
+          <Tab eventKey={5} title={<TabTitleText>{t('YAML')}</TabTitleText>}>
             <div style={{ marginTop: 16 }}>
               <CodeBlock>
                 <CodeBlockCode>
