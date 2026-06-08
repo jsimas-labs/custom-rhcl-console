@@ -1,15 +1,27 @@
 import { AnyPolicyOrGeneric, K8sCondition, PolicyAttachment, PolicyKind } from '../types';
 
 /**
- * Determines the effective policy stack for an HTTPRoute after merge/override resolution.
- * Kuadrant evaluates policies in this order:
- *   1. Route-level overrides (highest priority)
- *   2. Gateway-level overrides
- *   3. Route-level defaults
- *   4. Gateway-level defaults
+ * Determines the effective policy stack for an HTTPRoute after merge/override
+ * resolution per Gateway API GEP-713 (Policy Attachment) + GEP-2649 (TargetRefs):
  *
- * When a policy uses `overrides`, it takes precedence over `defaults` at the same or
- * lower level. Overridden policies are marked with the `Overridden` condition.
+ *   1. Gateway-level overrides (HIGHEST priority — parent's "this is non-negotiable")
+ *   2. Route-level overrides
+ *   3. Route-level defaults
+ *   4. Gateway-level defaults (LOWEST priority — parent's "use this if nothing else does")
+ *
+ * Earlier versions of this file had Route overrides winning over Gateway overrides.
+ * That was wrong by spec: a `Gateway`-attached policy with `overrides` MUST take
+ * precedence over the same kind attached to its `HTTPRoute` — the whole point of
+ * gateway-level overrides is platform owners enforcing a ceiling that route owners
+ * can't bypass. See:
+ *   https://gateway-api.sigs.k8s.io/geps/gep-713/#hierarchy-1
+ *
+ * Override math is **scoped by policy kind**: a `RateLimitPolicy` override only
+ * silences other `RateLimitPolicy` entries — it never overrides an `AuthPolicy` or
+ * a `DNSPolicy`. That's enforced by `markOverriddenByKind` below. The returned
+ * stack mixes kinds in resolution order so the UI can render a single ordered
+ * chain (which is what operators want when debugging "what's enforced here?"),
+ * while each kind stays correctly resolved against its own peers.
  */
 export function computeEffectivePolicies(
   gatewayPolicies: PolicyAttachment[],
@@ -23,14 +35,18 @@ export function computeEffectivePolicies(
   const routeDefaults = routePolicies.filter((p) => !hasOverrides(p.policy));
   const gatewayDefaults = gatewayPolicies.filter((p) => !hasOverrides(p.policy));
 
-  for (const p of routeOverrides) {
+  // 1. Gateway overrides — top of the hierarchy, nothing can override them.
+  for (const p of gatewayOverrides) {
     result.push({ ...p, isOverridden: false, isEnforced: isEnforced(p.conditions) });
-    markOverriddenByKind(overriddenSet, p.policyKind, gatewayDefaults);
+    // A Gateway override of kind K silences every other policy of kind K
+    // attached anywhere below (Route overrides + Route defaults + Gateway defaults).
+    markOverriddenByKind(overriddenSet, p.policyKind, routeOverrides);
     markOverriddenByKind(overriddenSet, p.policyKind, routeDefaults);
-    markOverriddenByKind(overriddenSet, p.policyKind, gatewayOverrides);
+    markOverriddenByKind(overriddenSet, p.policyKind, gatewayDefaults);
   }
 
-  for (const p of gatewayOverrides) {
+  // 2. Route overrides — only get to win if no Gateway override of the same kind.
+  for (const p of routeOverrides) {
     const key = policyKey(p);
     const overridden = overriddenSet.has(key);
     result.push({ ...p, isOverridden: overridden, isEnforced: !overridden && isEnforced(p.conditions) });
@@ -40,6 +56,7 @@ export function computeEffectivePolicies(
     }
   }
 
+  // 3. Route defaults — only if no override (Gateway or Route) of the same kind.
   for (const p of routeDefaults) {
     const key = policyKey(p);
     const overridden = overriddenSet.has(key);
@@ -49,6 +66,7 @@ export function computeEffectivePolicies(
     }
   }
 
+  // 4. Gateway defaults — last resort, anything above of the same kind wins.
   for (const p of gatewayDefaults) {
     const key = policyKey(p);
     const overridden = overriddenSet.has(key);
