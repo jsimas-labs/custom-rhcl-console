@@ -1,5 +1,17 @@
 import * as React from 'react';
-import { useParams, Link } from 'react-router';
+// Cluster 4.21 host wraps plugin pages in `<CompatRouter>` from
+// `react-router-dom-v5-compat`, which populates the router-**v6** context
+// for path params. v5's `useParams` reads the v5 context and returns `{}`
+// in that setup — that's what made the breadcrumb show `Gateways > /`
+// (empty ns/name) and the Policies/Routes/Metrics tabs fall through to
+// "no policies"/"no routes"/"no data" (PolicyAttachmentView etc. received
+// empty targetName/namespace).
+// Use `useParams` from `react-router-dom-v5-compat`, which reads the v6
+// context that CompatRouter actually fills. `Link` keeps coming from v5
+// `react-router-dom` (renders a plain <a>, both contexts handle it).
+// TODO: revert to a single source once we move back to SDK 4.22+ / router 6+.
+import { useParams } from 'react-router-dom-v5-compat';
+import { Link } from 'react-router-dom';
 import {
   PageSection,
   Title,
@@ -42,11 +54,22 @@ const GatewayDetailPage: React.FC = () => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
   const [activeTab, setActiveTab] = React.useState(0);
 
-  const [gateway, loaded] = useK8sWatchResource<Gateway>({
+  // Single-resource watch (`name` + `namespace`) was returning `undefined`
+  // indefinitely on cluster 4.21 / SDK 4.21 — the same failure mode that
+  // hit APIOverviewPage. Symptom: the page stuck on a Spinner, so the
+  // header (name/namespace from useParams) never rendered and PolicyView
+  // got an empty targetName so the Policies tab showed "no policies".
+  // Listing in the namespace and finding by name is what GatewayListPage
+  // already does successfully against the same cluster.
+  const [gateways, loaded] = useK8sWatchResource<Gateway[]>({
     groupVersionKind: GatewayGVK,
-    name,
+    isList: true,
     namespace: ns,
   });
+  const gateway = React.useMemo(
+    () => (gateways || []).find((g) => g.metadata?.name === name),
+    [gateways, name],
+  );
 
   if (!loaded || !gateway) {
     return (
@@ -99,13 +122,13 @@ const GatewayDetailPage: React.FC = () => {
                       <DescriptionListGroup>
                         <DescriptionListTerm>{t('Gateway class')}</DescriptionListTerm>
                         <DescriptionListDescription>
-                          {gateway.spec.gatewayClassName}
+                          {gateway.spec?.gatewayClassName || '-'}
                         </DescriptionListDescription>
                       </DescriptionListGroup>
                       <DescriptionListGroup>
                         <DescriptionListTerm>{t('Listeners')}</DescriptionListTerm>
                         <DescriptionListDescription>
-                          {gateway.spec.listeners.length}
+                          {gateway.spec?.listeners?.length ?? 0}
                         </DescriptionListDescription>
                       </DescriptionListGroup>
                       <DescriptionListGroup>
@@ -132,7 +155,7 @@ const GatewayDetailPage: React.FC = () => {
                         </Tr>
                       </Thead>
                       <Tbody>
-                        {gateway.spec.listeners.map((l) => (
+                        {(gateway.spec?.listeners || []).map((l) => (
                           <Tr key={l.name}>
                             <Td>{l.name}</Td>
                             <Td>{l.port}</Td>
@@ -255,7 +278,10 @@ const GatewayRoutesTab: React.FC<{ gatewayName: string; namespace: string }> = (
 
   const filteredRoutes = React.useMemo(() => {
     return (routes || []).filter((r) =>
-      r.spec.parentRefs?.some(
+      // `r.spec` may be momentarily undefined for a route that was just
+      // delivered by the cache before its spec was filled — guard with `?.`
+      // so the routes tab doesn't crash the whole page.
+      r.spec?.parentRefs?.some(
         (ref) =>
           ref.name === gatewayName &&
           (!ref.namespace || ref.namespace === namespace),
@@ -286,7 +312,7 @@ const GatewayRoutesTab: React.FC<{ gatewayName: string; namespace: string }> = (
               </Link>
             </Td>
             <Td>{route.metadata?.namespace}</Td>
-            <Td>{(route.spec.hostnames || []).join(', ') || '-'}</Td>
+            <Td>{(route.spec?.hostnames || []).join(', ') || '-'}</Td>
             <Td>
               <StatusLabel conditions={route.status?.parents?.[0]?.conditions} />
             </Td>

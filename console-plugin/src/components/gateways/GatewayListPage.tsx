@@ -1,5 +1,7 @@
 import * as React from 'react';
-import { Link } from 'react-router';
+// SDK 4.21 federates react-router 5.3; in v5 `Link` lives only in
+// `react-router-dom`. Keep this until we move back to SDK 4.22+.
+import { Link } from 'react-router-dom';
 import { PageSection, Title, Spinner, Bullseye } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useTranslation } from 'react-i18next';
@@ -143,7 +145,7 @@ const GatewayRow: React.FC<{ gateway: Gateway }> = ({ gateway }) => {
         <Link to={`/connectivity-link/gateways/${ns}/${name}`}>{name}</Link>
       </Td>
       <Td>{ns}</Td>
-      <Td>{gateway.spec.gatewayClassName}</Td>
+      <Td>{gateway.spec?.gatewayClassName || '-'}</Td>
       <Td>
         <StatusLabel conditions={gateway.status?.conditions} />
         {policies.length > 0 && (
@@ -152,7 +154,7 @@ const GatewayRow: React.FC<{ gateway: Gateway }> = ({ gateway }) => {
           </span>
         )}
       </Td>
-      <Td>{gateway.spec.listeners.length}</Td>
+      <Td>{gateway.spec?.listeners?.length ?? 0}</Td>
       <Td><HostnameCell hostnames={hostnames} /></Td>
     </Tr>
   );

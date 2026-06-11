@@ -64,7 +64,12 @@ export interface AuthPolicySpec {
 
 export interface AuthPolicy extends K8sResourceCommon {
   spec: {
-    targetRef: PolicyTargetReference;
+    // GEP-2649: targetRefs[] is the current Gateway API form. The singular
+    // targetRef is retained for back-compat with policies that have not migrated.
+    // Callers SHOULD use policyTargetRefs(p) / policyAttachesTo(p, ...) from
+    // utils/policyTargets instead of reading either field directly.
+    targetRef?: PolicyTargetReference;
+    targetRefs?: PolicyTargetReference[];
     defaults?: AuthPolicySpec;
     overrides?: AuthPolicySpec;
     rules?: AuthRules;
@@ -91,7 +96,12 @@ export interface RateLimitPolicySpec {
 
 export interface RateLimitPolicy extends K8sResourceCommon {
   spec: {
-    targetRef: PolicyTargetReference;
+    // GEP-2649: targetRefs[] is the current Gateway API form. The singular
+    // targetRef is retained for back-compat with policies that have not migrated.
+    // Callers SHOULD use policyTargetRefs(p) / policyAttachesTo(p, ...) from
+    // utils/policyTargets instead of reading either field directly.
+    targetRef?: PolicyTargetReference;
+    targetRefs?: PolicyTargetReference[];
     defaults?: RateLimitPolicySpec;
     overrides?: RateLimitPolicySpec;
     limits?: Record<string, RateLimit>;
@@ -103,7 +113,12 @@ export interface RateLimitPolicy extends K8sResourceCommon {
 
 export interface TokenRateLimitPolicy extends K8sResourceCommon {
   spec: {
-    targetRef: PolicyTargetReference;
+    // GEP-2649: targetRefs[] is the current Gateway API form. The singular
+    // targetRef is retained for back-compat with policies that have not migrated.
+    // Callers SHOULD use policyTargetRefs(p) / policyAttachesTo(p, ...) from
+    // utils/policyTargets instead of reading either field directly.
+    targetRef?: PolicyTargetReference;
+    targetRefs?: PolicyTargetReference[];
     defaults?: {
       limits?: Record<string, { tokens: number; window: string }>;
     };
@@ -118,7 +133,12 @@ export interface TokenRateLimitPolicy extends K8sResourceCommon {
 
 export interface DNSPolicy extends K8sResourceCommon {
   spec: {
-    targetRef: PolicyTargetReference;
+    // GEP-2649: targetRefs[] is the current Gateway API form. The singular
+    // targetRef is retained for back-compat with policies that have not migrated.
+    // Callers SHOULD use policyTargetRefs(p) / policyAttachesTo(p, ...) from
+    // utils/policyTargets instead of reading either field directly.
+    targetRef?: PolicyTargetReference;
+    targetRefs?: PolicyTargetReference[];
     providerRefs?: { name: string }[];
     loadBalancing?: {
       geo?: { defaultGeo: string };
@@ -133,7 +153,12 @@ export interface DNSPolicy extends K8sResourceCommon {
 
 export interface TLSPolicy extends K8sResourceCommon {
   spec: {
-    targetRef: PolicyTargetReference;
+    // GEP-2649: targetRefs[] is the current Gateway API form. The singular
+    // targetRef is retained for back-compat with policies that have not migrated.
+    // Callers SHOULD use policyTargetRefs(p) / policyAttachesTo(p, ...) from
+    // utils/policyTargets instead of reading either field directly.
+    targetRef?: PolicyTargetReference;
+    targetRefs?: PolicyTargetReference[];
     issuerRef?: {
       name: string;
       kind?: string;
@@ -148,6 +173,24 @@ export interface TLSPolicy extends K8sResourceCommon {
   };
 }
 
+/**
+ * A policy resource the console did NOT compile-time know about (BackendTLSPolicy
+ * on OCP 4.22, any future Kuadrant / Gateway API policy). Discovered at runtime
+ * via the GEP-713 CRD label. Carries only the fields every Gateway API policy
+ * shares: target references plus standard conditions. Specialized renderers
+ * (TLS expiry, DNS propagation, rate-limit RPS, etc.) only apply to the known
+ * kinds above; everything else falls back to the generic policy card.
+ */
+export interface GenericPolicy extends K8sResourceCommon {
+  spec?: {
+    targetRef?: PolicyTargetReference;
+    targetRefs?: PolicyTargetReference[];
+  };
+  status?: {
+    conditions?: K8sCondition[];
+  };
+}
+
 export type AnyPolicy =
   | AuthPolicy
   | RateLimitPolicy
@@ -155,15 +198,55 @@ export type AnyPolicy =
   | DNSPolicy
   | TLSPolicy;
 
-export type PolicyKind =
+/** Discriminator allowing UI components to render either the specialized cards or the generic fallback. */
+export type AnyPolicyOrGeneric = AnyPolicy | GenericPolicy;
+
+/**
+ * Policy kinds for which the console ships a specialized renderer / type.
+ * Any new kind added here gets compile-time guarantees (typed spec, dedicated
+ * Card UI). Kinds NOT in this union come from GEP-713 discovery and are
+ * surfaced through the GenericPolicy fallback renderer.
+ */
+export type SpecializedPolicyKind =
   | 'AuthPolicy'
   | 'RateLimitPolicy'
   | 'TokenRateLimitPolicy'
   | 'DNSPolicy'
   | 'TLSPolicy';
 
+/** Runtime list mirroring SpecializedPolicyKind for narrowing checks. */
+export const SPECIALIZED_POLICY_KINDS: readonly SpecializedPolicyKind[] = [
+  'AuthPolicy',
+  'RateLimitPolicy',
+  'TokenRateLimitPolicy',
+  'DNSPolicy',
+  'TLSPolicy',
+] as const;
+
+/** Type guard usable when narrowing a PolicyKind to the specialized union. */
+export function isSpecializedPolicyKind(kind: string): kind is SpecializedPolicyKind {
+  return (SPECIALIZED_POLICY_KINDS as readonly string[]).includes(kind);
+}
+
+/**
+ * Discriminator for `PolicyAttachment.policyKind`. Accepts every specialized
+ * kind (preserves IDE autocomplete + type narrowing) AND any other string
+ * (so policies discovered at runtime — BackendTLSPolicy on OCP 4.22, future
+ * Kuadrant policies — flow through the same attachment shape).
+ *
+ * The `string & {}` idiom keeps the literal union widened to string at the
+ * call site without dropping the autocomplete suggestions for the specialized
+ * kinds.
+ */
+export type PolicyKind = SpecializedPolicyKind | (string & {});
+
 export interface PolicyAttachment {
-  policy: AnyPolicy;
+  /**
+   * The attached policy resource. For one of the specialized kinds this is a
+   * fully typed AnyPolicy; for any kind discovered at runtime it falls back
+   * to GenericPolicy (carries only the Gateway API common shape).
+   */
+  policy: AnyPolicyOrGeneric;
   policyKind: PolicyKind;
   targetRef: PolicyTargetReference;
   conditions: K8sCondition[];

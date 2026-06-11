@@ -1,9 +1,16 @@
 import { Gateway, GatewayStatusAddress } from '../types';
 
 export function getGatewayExternalHostnames(gateway: Gateway): string[] {
+  // Defensive against partial / cached Gateway objects (e.g. a watch that
+  // delivered the resource before the API server filled status, or a stale
+  // list entry where spec/status are not both present). The crash that
+  // motivated this guard was "Cannot read properties of undefined (reading
+  // 'addresses')" landing on `gateway.spec.addresses` when spec was absent
+  // — `?.` everywhere we touch spec/status keeps us safe without changing
+  // behaviour for normal Gateways.
   const hostnames: string[] = [];
 
-  const addresses = gateway.status?.addresses || gateway.spec.addresses || [];
+  const addresses = gateway.status?.addresses || gateway.spec?.addresses || [];
   for (const addr of addresses) {
     if (addr.type === 'Hostname' || (!addr.type && !isIPAddress(addr.value))) {
       hostnames.push(addr.value);
@@ -11,7 +18,7 @@ export function getGatewayExternalHostnames(gateway: Gateway): string[] {
   }
 
   if (hostnames.length === 0) {
-    for (const listener of gateway.spec.listeners) {
+    for (const listener of gateway.spec?.listeners || []) {
       if (listener.hostname) {
         hostnames.push(listener.hostname);
       }

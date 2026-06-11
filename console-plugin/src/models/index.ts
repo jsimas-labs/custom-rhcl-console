@@ -78,6 +78,16 @@ export const APIKeyGVK: K8sGroupVersionKind = {
   kind: 'APIKey',
 };
 
+/**
+ * The set of policy GVKs for which the console ships **specialized renderers**
+ * (TLS expiry card, rate-limit RPS panel, etc.). This is NOT an exhaustive
+ * inventory of attachable policies — for runtime enumeration of every policy
+ * CRD on the cluster (BackendTLSPolicy on OCP 4.22, any future Kuadrant
+ * policy), use `useDiscoveredPolicyCRDs()` which follows the Gateway API
+ * GEP-713 label convention. New code that needs "every attached policy"
+ * SHOULD call the discovery hook and treat unknown kinds via the
+ * `GenericPolicy` renderer.
+ */
 export const ALL_POLICY_GVKS = [
   AuthPolicyGVK,
   RateLimitPolicyGVK,
@@ -93,6 +103,17 @@ export const POLICY_KIND_LABELS: Record<string, string> = {
   DNSPolicy: 'DNS',
   TLSPolicy: 'TLS',
 };
+
+/**
+ * Resolve the display label for a policy kind. Returns the curated short
+ * label when one is registered in POLICY_KIND_LABELS (the 5 specialized
+ * kinds) and falls back to the raw kind name for everything else — so
+ * policies discovered at runtime (e.g. BackendTLSPolicy) get a sane label
+ * without any further registration.
+ */
+export function policyKindLabel(kind: string): string {
+  return POLICY_KIND_LABELS[kind] || kind;
+}
 
 const POLICY_KIND_TO_GVK: Record<string, K8sGroupVersionKind> = {
   AuthPolicy: AuthPolicyGVK,

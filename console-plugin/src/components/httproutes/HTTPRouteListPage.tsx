@@ -1,5 +1,7 @@
 import * as React from 'react';
-import { Link } from 'react-router';
+// SDK 4.21 federates react-router 5.3; in v5 `Link` lives only in
+// `react-router-dom`. Keep this until we move back to SDK 4.22+.
+import { Link } from 'react-router-dom';
 import { PageSection, Title, Spinner, Bullseye } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useTranslation } from 'react-i18next';
@@ -123,9 +125,9 @@ const HTTPRouteListPage: React.FC = () => {
             {filtered.map((route) => {
               const ns = route.metadata?.namespace || '';
               const name = route.metadata?.name || '';
-              const hostnames = route.spec.hostnames || [];
-              const parentRef = route.spec.parentRefs?.[0];
-              const backendCount = (route.spec.rules || []).reduce(
+              const hostnames = route.spec?.hostnames || [];
+              const parentRef = route.spec?.parentRefs?.[0];
+              const backendCount = (route.spec?.rules || []).reduce(
                 (acc, rule) => acc + (rule.backendRefs?.length || 0),
                 0,
               );

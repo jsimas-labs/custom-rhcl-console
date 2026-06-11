@@ -1,6 +1,7 @@
 import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import { DNSPolicyGVK, DNSRecordGVK } from '../models';
 import { DNSPolicy, DNSRecord } from '../types';
+import { policyAttachesTo } from '../utils/policyTargets';
 
 interface DNSHealthEntry {
   dnsPolicy: DNSPolicy;
@@ -34,8 +35,11 @@ export function useDNSRecordsForGateway(
   const loaded = policiesLoaded && recordsLoaded;
   const error = policiesErr || recordsErr;
 
-  const matchingPolicies = (dnsPolicies || []).filter(
-    (p) => p.spec.targetRef.name === gatewayName && p.spec.targetRef.kind === 'Gateway',
+  // Handles both spec.targetRefs[] (GEP-2649) and legacy spec.targetRef. Falls
+  // back to the policy's own namespace when the ref omits one (Gateway API
+  // semantics) — matches the behaviour of policyAttachesTo across the codebase.
+  const matchingPolicies = (dnsPolicies || []).filter((p) =>
+    policyAttachesTo(p, 'Gateway', gatewayName, namespace),
   );
 
   const entries: DNSHealthEntry[] = matchingPolicies.map((policy) => {

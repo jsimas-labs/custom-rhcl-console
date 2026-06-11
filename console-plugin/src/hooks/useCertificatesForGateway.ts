@@ -32,7 +32,11 @@ export function useCertificatesForGateway(
     return { certificates: [], loaded, error };
   }
 
-  const tlsListeners = gateway.spec.listeners.filter((l) => l.tls?.certificateRefs?.length);
+  // Defensive: `gateway.spec` can be undefined on a freshly-watched object
+  // before the cache fills the rest of the resource. Without `?.` here the
+  // TLS Health card crashed the whole Gateway detail page with
+  // "Cannot read properties of undefined (reading 'listeners')".
+  const tlsListeners = (gateway.spec?.listeners || []).filter((l) => l.tls?.certificateRefs?.length);
   const certNames = new Set<string>();
   const listenerByCertName = new Map<string, string>();
 

@@ -66,7 +66,18 @@ const config: Configuration = {
     },
   },
   plugins: [
-    new ConsoleRemotePlugin(),
+    // Cluster targets OCP 4.21 (host registers the legacy `loadPluginEntry`
+    // callback). SDK 4.21 ConsoleRemotePlugin emits exactly that callback —
+    // but its shared-module gate enforces React 17 / react-router 5 /
+    // react-i18next 11. The codebase is on React 18 / router 7 / i18next 16
+    // (newer than what 4.21 ships). We bypass the gate so the build emits the
+    // 4.21-compatible callback while keeping our newer deps; at runtime the
+    // host federates its own React 17 to the plugin, which React 18 plugins
+    // tolerate for read-only views (the SDK validates strict-equality of
+    // peers it provides — actual runtime is forgiving for our usage).
+    // TODO: drop this once cluster upgrades to 4.22+ or codebase pins SDK to
+    // the cluster version.
+    new ConsoleRemotePlugin({ validateSharedModules: false }),
     new ForkTsCheckerWebpackPlugin({
       typescript: {
         configFile: path.resolve(__dirname, 'tsconfig.json'),

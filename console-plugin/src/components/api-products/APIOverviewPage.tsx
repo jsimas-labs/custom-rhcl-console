@@ -1,5 +1,9 @@
 import * as React from 'react';
-import { useParams, Link } from 'react-router';
+// `useParams` from v5-compat (reads the v6 context populated by the
+// host's `<CompatRouter>`); `Link` from v5 `react-router-dom`. See
+// GatewayDetailPage for the full reasoning.
+import { useParams } from 'react-router-dom-v5-compat';
+import { Link } from 'react-router-dom';
 import {
   PageSection,
   Title,
@@ -29,6 +33,7 @@ import { hostnameToURL } from '../../utils/hostname';
 import PlansCards from './PlansCards';
 import APIKeysTable from './APIKeysTable';
 import TrafficSummary from './TrafficSummary';
+import TopConsumers from './TopConsumers';
 
 const APIOverviewPage: React.FC = () => {
   const { ns, name } = useParams<{ ns: string; name: string }>();
@@ -66,20 +71,19 @@ const APIOverviewContent: React.FC<{
   const { t } = useTranslation('plugin__custom-rhcl-console');
 
   const targetRef = product.spec?.targetRef;
-  const [route] = useK8sWatchResource<HTTPRoute>(
-    targetRef?.name
-      ? {
-          groupVersionKind: HTTPRouteGVK,
-          name: targetRef.name,
-          namespace: targetRef.namespace || ns,
-        }
-      : {
-          groupVersionKind: HTTPRouteGVK,
-          isList: true,
-          namespace: ns,
-          limit: 0,
-        },
-  );
+  // We previously did a single-resource watch (name + namespace) for the
+  // HTTPRoute, but on cluster 4.21 / SDK 4.21 that watch was returning
+  // `undefined` indefinitely for some products (the destructure ignored
+  // `loaded`/`error`, so the UI silently showed empty Address / Accepted
+  // paths / Traffic even when the route existed). Listing in the namespace
+  // and filtering client-side is the same pattern GatewayDetailPage uses
+  // successfully, costs nothing here (one ns scope, ~tens of routes), and
+  // makes the missing-route case explicit (find returns undefined).
+  const [routes] = useK8sWatchResource<HTTPRoute[]>({
+    groupVersionKind: HTTPRouteGVK,
+    isList: true,
+    namespace: targetRef?.namespace || ns,
+  });
 
   const displayName = product.spec?.displayName || product.metadata?.name || '';
   const description = product.spec?.description || '';
@@ -91,27 +95,62 @@ const APIOverviewContent: React.FC<{
   const contact = product.spec?.contact;
   const plans = product.status?.discoveredPlans || [];
   const authScheme = product.status?.discoveredAuthScheme;
-  const authType = React.useMemo(() => {
-    if (!authScheme?.authentication) return undefined;
-    for (const identity of Object.values(authScheme.authentication)) {
-      if (identity.apiKey) return 'apiKey';
-      if (identity.jwt) return 'jwt';
-      if (identity.oidc) return 'oidc';
-      if (identity.anonymous) return 'anonymous';
+  // The previous implementation returned the FIRST identity type it iterated
+  // and stopped — so an AuthPolicy whose first map key happened to be an
+  // anonymous rule (e.g. `ai-mock` for the `/api/ai/*` mock, or
+  // `cors-preflight` for OPTIONS) made the card show "anonymous" even
+  // though the API actually required apiKey / JWT. The fix: collect every
+  // strong type present (apiKey / jwt / oidc), and only fall back to
+  // "anonymous" when there is no strong type at all. `Required` then
+  // mirrors "has at least one strong type" — anonymous-only really IS
+  // a public API, but an API that has CORS preflight alongside apiKey
+  // is NOT public.
+  const { authType, authRequired } = React.useMemo(() => {
+    if (!authScheme?.authentication) {
+      return { authType: undefined as string | undefined, authRequired: false };
     }
-    return undefined;
+    const strong = new Set<string>();
+    let hasAnonymous = false;
+    for (const identity of Object.values(authScheme.authentication)) {
+      if (identity.apiKey) strong.add('apiKey');
+      if (identity.jwt) strong.add('jwt');
+      if (identity.oidc) strong.add('oidc');
+      if (identity.anonymous) hasAnonymous = true;
+    }
+    if (strong.size > 0) {
+      // Order labels predictably (apiKey, jwt, oidc) so two calls with the
+      // same underlying set always render the same string.
+      const ordered = ['apiKey', 'jwt', 'oidc'].filter((t) => strong.has(t));
+      return { authType: ordered.join(' / '), authRequired: true };
+    }
+    if (hasAnonymous) {
+      return { authType: 'anonymous', authRequired: false };
+    }
+    return { authType: undefined, authRequired: false };
   }, [authScheme]);
 
-  const singleRoute = targetRef?.name ? (route as HTTPRoute) : undefined;
+  const singleRoute = React.useMemo(
+    () =>
+      targetRef?.name
+        ? (routes || []).find((r) => r.metadata?.name === targetRef.name)
+        : undefined,
+    [routes, targetRef?.name],
+  );
   const hostnames = singleRoute?.spec?.hostnames || [];
   const resolvedAddress =
     product.status?.resolvedAddress ||
     (hostnames.length > 0 ? hostnameToURL(hostnames[0]) : null);
 
   const acceptedPaths = React.useMemo(() => {
-    if (!singleRoute) return [];
+    // Even when the route hasn't been found yet (list still loading, or
+    // targetRef points at a route that doesn't exist), surface a single
+    // catch-all row so the table never renders empty. Previously we
+    // returned [] when singleRoute was undefined, which left the table
+    // with headers and no body — making it look like the API accepts
+    // nothing. The catch-all row matches what Gateway API actually
+    // allows when an HTTPRoute has no rule matches.
     const paths: { method: string; path: string }[] = [];
-    for (const rule of singleRoute.spec?.rules || []) {
+    for (const rule of singleRoute?.spec?.rules || []) {
       for (const match of rule.matches || []) {
         paths.push({
           method: match.method || '*',
@@ -224,12 +263,16 @@ const APIOverviewContent: React.FC<{
                   <DescriptionListGroup>
                     <DescriptionListTerm>{t('Required')}</DescriptionListTerm>
                     <DescriptionListDescription>
-                      {authScheme?.authentication ? 'Yes' : 'No'}
+                      {authRequired ? t('Yes') : t('No')}
                     </DescriptionListDescription>
                   </DescriptionListGroup>
                 </DescriptionList>
               </CardBody>
             </Card>
+          </GridItem>
+
+          <GridItem span={12}>
+            <TopConsumers routeName={routeName} namespace={ns} />
           </GridItem>
 
           <GridItem span={12}>

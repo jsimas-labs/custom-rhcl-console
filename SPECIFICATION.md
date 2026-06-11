@@ -179,11 +179,21 @@ Each requirement is testable. Wording follows RFC 2119 (`MUST`, `SHOULD`,
   render hostnames as clickable HTTPS links to the route's `/` (when the host
   is resolvable from the browser).
 - **FR-003** The console MUST render a policy-attachment view per `Gateway`
-  and per `HTTPRoute` showing each attached `AuthPolicy`,
-  `RateLimitPolicy`, `TokenRateLimitPolicy`, `DNSPolicy`, `TLSPolicy`. For
-  each attachment, show: targetRef kind/name, status condition
-  (`Accepted`, `Enforced`, `Overridden`), and the reason / message string
-  from the policy status.
+  and per `HTTPRoute` showing every attached policy. Policy discovery MUST
+  follow the Gateway API convention defined by [GEP-713 / GEP-2649]: the
+  console enumerates `CustomResourceDefinition`s carrying the label
+  `gateway.networking.k8s.io/policy` (values `"inherited"` or `"direct"`)
+  and watches their instances. This guarantees that any current or future
+  policy type — including `BackendTLSPolicy` (Gateway API GA on OCP 4.22)
+  and any future Kuadrant policy — appears automatically with no plugin
+  change. The console MAY ship **specialized renderers** for the policies
+  it has first-class knowledge of (`AuthPolicy`, `RateLimitPolicy`,
+  `TokenRateLimitPolicy`, `DNSPolicy`, `TLSPolicy`); for every other
+  discovered policy it MUST render the **generic policy card**
+  (kind, name, namespace, `targetRefs[]`, `Accepted`/`Enforced`/`Overridden`,
+  reason+message). Attachment match MUST follow `spec.targetRefs[]`
+  (GEP-2649, plural) with a backward-compatible fallback to the legacy
+  `spec.targetRef` (singular) for older policies that have not migrated.
 - **FR-004** For a selected `HTTPRoute`, the console MUST compute and display
   the **effective policy stack** after merge/override resolution
   (gateway-level vs route-level, defaults vs overrides), in the same order
@@ -501,6 +511,18 @@ will update.
 - **Q7** Build pipeline — S2I (Node base image) or Dockerfile? Project
   convention is mixed (`banking-api` uses Quarkus S2I; `mobile-bank` is
   Flutter web). Recommend Dockerfile for deterministic webpack output.
+- **Q8** Policy discoverability — confirm the FR-003 amendment
+  (GEP-713 CRD-label enumeration + GEP-2649 `targetRefs[]` matching +
+  generic-card fallback for unknown kinds). The current implementation
+  (`useAttachedPolicies.ts` / `PolicyListPage.tsx`) hardcodes five GVKs
+  and matches on legacy singular `targetRef`. Migration plan should
+  cover: (a) `useDiscoveredPolicyCRDs` hook, (b) `targetRefs[]` matcher
+  with legacy fallback, (c) watch policies in BOTH the resource's
+  namespace and the parent `Gateway`'s namespace (today TLSPolicies/
+  DNSPolicies in `openshift-ingress` do not surface on an `HTTPRoute`
+  view in another namespace). Affects sections 6.3 (policy view), 6.4
+  (effective stack), and the §9 GVK table (kinds become advisory, not
+  exhaustive).
 
 ---
 

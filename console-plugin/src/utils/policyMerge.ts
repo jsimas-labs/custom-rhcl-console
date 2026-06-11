@@ -1,4 +1,4 @@
-import { AnyPolicy, K8sCondition, PolicyAttachment, PolicyKind } from '../types';
+import { AnyPolicyOrGeneric, K8sCondition, PolicyAttachment, PolicyKind } from '../types';
 
 /**
  * Determines the effective policy stack for an HTTPRoute after merge/override resolution.
@@ -58,8 +58,10 @@ export function computeEffectivePolicies(
   return result;
 }
 
-function hasOverrides(policy: AnyPolicy): boolean {
-  return !!(policy.spec as Record<string, unknown>).overrides;
+function hasOverrides(policy: AnyPolicyOrGeneric): boolean {
+  // GenericPolicy never declares overrides — Auth/RateLimit/etc. may. Tolerate
+  // an undefined spec so this is safe to call for any discovered policy.
+  return !!(policy.spec as Record<string, unknown> | undefined)?.overrides;
 }
 
 function isEnforced(conditions: K8sCondition[]): boolean {
@@ -85,6 +87,6 @@ function markOverriddenByKind(
   }
 }
 
-export function getPolicyLevel(policy: AnyPolicy): 'override' | 'default' {
+export function getPolicyLevel(policy: AnyPolicyOrGeneric): 'override' | 'default' {
   return hasOverrides(policy) ? 'override' : 'default';
 }

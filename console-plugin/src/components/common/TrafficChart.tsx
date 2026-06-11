@@ -26,7 +26,18 @@ interface TrafficChartProps {
 const REQUEST_COLORS = ['#3E8635', '#F0AB00', '#C9190B'];
 const LATENCY_COLORS = ['#06C', '#8481DD', '#EC7A08'];
 
-function formatTime(date: Date): string {
+// Defensive over `input`. Victory feeds tickFormat with whatever lives
+// on the resolved X axis scale. We always WANT a `time` scale, but if
+// any series in the group has zero data points Victory falls back to a
+// numeric scale and starts passing milliseconds-since-epoch numbers
+// here — `(number).toLocaleTimeString` throws TypeError, which is what
+// crashed the page when a user opened a tab whose chart was still
+// loading one of its sub-queries. Accept Date | number | string, and
+// return '' for anything we can't make sense of (Victory tolerates an
+// empty tick label and just leaves the slot blank).
+function formatTime(input: Date | number | string): string {
+  const date = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
@@ -52,6 +63,10 @@ const RequestRateChart: React.FC<{ series: TimeSeries[] }> = ({ series }) => {
           <Chart
             height={200}
             padding={{ top: 10, bottom: 40, left: 60, right: 20 }}
+            // Pin X axis to time scale so Victory doesn't fall back to
+            // numeric (which is what was making `formatTime` receive
+            // milliseconds and crash).
+            scale={{ x: 'time' }}
             containerComponent={
               <ChartVoronoiContainer
                 labels={({ datum }: { datum: { x: Date; y: number; childName: string } }) =>
@@ -64,7 +79,7 @@ const RequestRateChart: React.FC<{ series: TimeSeries[] }> = ({ series }) => {
             themeColor={ChartThemeColor.multiUnordered}
           >
             <ChartAxis
-              tickFormat={(t: Date) => formatTime(t)}
+              tickFormat={(t) => formatTime(t)}
               fixLabelOverlap
             />
             <ChartAxis dependentAxis tickFormat={(t: number) => `${t.toFixed(1)}`} />
@@ -107,6 +122,7 @@ const LatencyChart: React.FC<{ series: TimeSeries[] }> = ({ series }) => {
           <Chart
             height={200}
             padding={{ top: 10, bottom: 40, left: 60, right: 20 }}
+            scale={{ x: 'time' }}
             containerComponent={
               <ChartVoronoiContainer
                 labels={({ datum }: { datum: { x: Date; y: number; childName: string } }) =>
@@ -119,7 +135,7 @@ const LatencyChart: React.FC<{ series: TimeSeries[] }> = ({ series }) => {
             themeColor={ChartThemeColor.multiUnordered}
           >
             <ChartAxis
-              tickFormat={(t: Date) => formatTime(t)}
+              tickFormat={(t) => formatTime(t)}
               fixLabelOverlap
             />
             <ChartAxis dependentAxis tickFormat={(t: number) => `${t.toFixed(0)}ms`} />
@@ -193,13 +209,29 @@ export const TrafficSparkline: React.FC<TrafficChartProps> = ({ kind, name, name
     return null;
   }
 
+  // Hide both axes explicitly. Without `<ChartAxis>` children Victory
+  // renders default axes anyway, and with `padding.left=0` the default
+  // Y tick labels overlap the chart area — that's the "numbers on top
+  // of each other" the Traffic (last hour) card was showing on small
+  // values. Setting transparent strokes + empty tick formatter draws
+  // nothing while still satisfying Victory's "every Chart needs at
+  // least one axis" assumption.
+  const hiddenAxis = {
+    axis: { stroke: 'transparent' },
+    ticks: { stroke: 'transparent' },
+    tickLabels: { fill: 'transparent' },
+    grid: { stroke: 'transparent' },
+  };
   return (
     <div style={{ height: 40, marginTop: 8 }}>
       <Chart
         height={40}
-        padding={{ top: 2, bottom: 2, left: 0, right: 0 }}
+        padding={{ top: 2, bottom: 2, left: 2, right: 2 }}
+        scale={{ x: 'time' }}
         themeColor={ChartThemeColor.blue}
       >
+        <ChartAxis tickFormat={() => ''} style={hiddenAxis} />
+        <ChartAxis dependentAxis tickFormat={() => ''} style={hiddenAxis} />
         <ChartArea
           data={series[0].data.map((d) => ({ x: d.x, y: d.y }))}
           style={{ data: { fillOpacity: 0.2, strokeWidth: 1.5 } }}

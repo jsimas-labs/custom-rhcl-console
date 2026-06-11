@@ -1,5 +1,7 @@
 import * as React from 'react';
-import { Link } from 'react-router';
+// SDK 4.21 federates react-router 5.3; in v5 `Link` lives only in
+// `react-router-dom`. Keep this until we move back to SDK 4.22+.
+import { Link } from 'react-router-dom';
 import {
   PageSection,
   Title,
@@ -111,8 +113,8 @@ const APIProductListPage: React.FC = () => {
             {filtered.map((product) => {
               const ns = product.metadata?.namespace || '';
               const name = product.metadata?.name || '';
-              const displayName = product.spec.displayName || name;
-              const tags = product.spec.tags || [];
+              const displayName = product.spec?.displayName || name;
+              const tags = product.spec?.tags || [];
 
               return (
                 <Tr key={product.metadata?.uid}>
@@ -121,13 +123,13 @@ const APIProductListPage: React.FC = () => {
                       {displayName}
                     </Link>
                   </Td>
-                  <Td>{product.spec.version || '-'}</Td>
+                  <Td>{product.spec?.version || '-'}</Td>
                   <Td>
-                    <Label color={product.spec.publishStatus === 'Published' ? 'green' : 'grey'}>
-                      {t(product.spec.publishStatus || 'Draft')}
+                    <Label color={product.spec?.publishStatus === 'Published' ? 'green' : 'grey'}>
+                      {t(product.spec?.publishStatus || 'Draft')}
                     </Label>
                   </Td>
-                  <Td>{product.spec.approvalMode || 'automatic'}</Td>
+                  <Td>{product.spec?.approvalMode || 'automatic'}</Td>
                   <Td>
                     {tags.length > 0 ? (
                       <Tooltip content={tags.join(', ')}>

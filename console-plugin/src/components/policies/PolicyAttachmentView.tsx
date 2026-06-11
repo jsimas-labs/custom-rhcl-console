@@ -25,15 +25,28 @@ interface PolicyAttachmentViewProps {
   targetKind: string;
   targetName: string;
   targetNamespace: string;
+  /**
+   * Namespace of the parent Gateway. When viewing an HTTPRoute whose parent
+   * Gateway lives in a different namespace (e.g. `openshift-ingress`), pass
+   * it so the hook also watches policies attached cross-namespace. Optional —
+   * if omitted, only the target's own namespace is watched.
+   */
+  gatewayNamespace?: string;
 }
 
 export const PolicyAttachmentView: React.FC<PolicyAttachmentViewProps> = ({
   targetKind,
   targetName,
   targetNamespace,
+  gatewayNamespace,
 }) => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
-  const { policies, loaded, error } = useAttachedPolicies(targetKind, targetName, targetNamespace);
+  const { policies, loaded, error } = useAttachedPolicies(
+    targetKind,
+    targetName,
+    targetNamespace,
+    gatewayNamespace,
+  );
 
   if (!loaded) {
     return <Spinner size="lg" />;

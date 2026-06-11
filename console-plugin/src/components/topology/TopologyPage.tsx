@@ -98,7 +98,7 @@ const TopologyPage: React.FC = () => {
         data: { kind: 'HTTPRoute', resource: route },
       });
 
-      for (const parentRef of route.spec.parentRefs || []) {
+      for (const parentRef of route.spec?.parentRefs || []) {
         const parentNs = parentRef.namespace || route.metadata?.namespace || '';
         const gwId = `gw-${parentNs}-${parentRef.name}`;
         edges.push({
@@ -109,7 +109,7 @@ const TopologyPage: React.FC = () => {
         });
       }
 
-      for (const rule of route.spec.rules || []) {
+      for (const rule of route.spec?.rules || []) {
         for (const backend of rule.backendRefs || []) {
           const backendNs = backend.namespace || route.metadata?.namespace || '';
           const svcId = `svc-${backendNs}-${backend.name}`;

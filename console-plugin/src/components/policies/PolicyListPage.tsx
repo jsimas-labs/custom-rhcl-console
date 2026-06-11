@@ -1,5 +1,7 @@
 import * as React from 'react';
-import { Link } from 'react-router';
+// SDK 4.21 federates react-router 5.3; in v5 `Link` lives only in
+// `react-router-dom`. Keep this until we move back to SDK 4.22+.
+import { Link } from 'react-router-dom';
 import { PageSection, Title, Spinner, Bullseye, Label } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
@@ -24,6 +26,7 @@ import {
   PolicyTargetReference,
 } from '../../types';
 import { getWorstConditionSeverity, isConditionTrue } from '../../utils/status';
+import { primaryTargetRef } from '../../utils/policyTargets';
 import StatusLabel from '../common/StatusLabel';
 import FilterToolbar from '../common/FilterToolbar';
 
@@ -67,7 +70,10 @@ const PolicyListPage: React.FC = () => {
 
     const addRows = (items: AnyPolicy[] | undefined, kind: PolicyKind) => {
       for (const p of items || []) {
-        const ref = (p.spec as { targetRef: PolicyTargetReference }).targetRef;
+        // Handles both spec.targetRefs[] (GEP-2649) and legacy spec.targetRef.
+        // Policies without any target ref are skipped (degenerate state).
+        const ref = primaryTargetRef(p);
+        if (!ref) continue;
         rows.push({ policy: p, policyKind: kind, targetRef: ref });
       }
     };
