@@ -84,6 +84,22 @@ export const APIKeyGVK: K8sGroupVersionKind = {
   kind: 'APIKey',
 };
 
+// devportal.kuadrant.io/v1alpha1 — auto-created by the controller; the
+// review/approval workflow points at *this*, not at APIKey directly.
+export const APIKeyRequestGVK: K8sGroupVersionKind = {
+  group: 'devportal.kuadrant.io',
+  version: 'v1alpha1',
+  kind: 'APIKeyRequest',
+};
+
+// devportal.kuadrant.io/v1alpha1 — created by the operator (or via this
+// plugin) every time an APIKeyRequest is approved or rejected.
+export const APIKeyApprovalGVK: K8sGroupVersionKind = {
+  group: 'devportal.kuadrant.io',
+  version: 'v1alpha1',
+  kind: 'APIKeyApproval',
+};
+
 /**
  * The set of policy GVKs for which the console ships **specialized renderers**
  * (TLS expiry card, rate-limit RPS panel, etc.). This is NOT an exhaustive

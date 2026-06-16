@@ -32,6 +32,7 @@ import { APIProduct, HTTPRoute } from '../../types';
 import { hostnameToURL } from '../../utils/hostname';
 import PlansCards from './PlansCards';
 import APIKeysTable from './APIKeysTable';
+import { APIProductBackendsCard } from './APIProductBackendsCard';
 import TrafficSummary from './TrafficSummary';
 import TopConsumers from './TopConsumers';
 
@@ -282,6 +283,13 @@ const APIOverviewContent: React.FC<{
                 <PlansCards plans={plans} />
               </CardBody>
             </Card>
+          </GridItem>
+
+          <GridItem span={12}>
+            <APIProductBackendsCard
+              route={singleRoute}
+              routeNamespace={targetRef?.namespace || ns}
+            />
           </GridItem>
 
           <GridItem span={12}>

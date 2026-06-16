@@ -38,7 +38,7 @@ import StatusLabel from '../common/StatusLabel';
 import TrafficPanel from '../common/TrafficPanel';
 import { PolicyAttachmentView } from '../policies/PolicyAttachmentView';
 import { EffectivePolicyStack } from '../policies/EffectivePolicyStack';
-import { BackendsTab } from './BackendsTab';
+import { BackendsTab } from './backends/BackendsTab';
 
 const HTTPRouteDetailPage: React.FC = () => {
   const { ns, name } = useParams<{ ns: string; name: string }>();

@@ -65,6 +65,13 @@ export interface APIProduct extends K8sResourceCommon {
   };
 }
 
+// devportal.kuadrant.io/v1alpha1 — APIKey CR.
+//
+// Phase is NOT a top-level status field anymore (it was on early CRD
+// revisions; the v1alpha1 schema we ship against now reports phase via
+// `status.conditions[*]` where exactly one condition with status=True
+// represents the current phase). `getAPIKeyPhase` below is the canonical
+// reader — never rely on `status.phase`.
 export interface APIKey extends K8sResourceCommon {
   spec: {
     apiProductRef: {
@@ -75,14 +82,88 @@ export interface APIKey extends K8sResourceCommon {
       userId: string;
       email: string;
     };
+    secretRef?: {
+      name: string;
+    };
     useCase: string;
   };
   status?: {
     conditions?: K8sCondition[];
-    phase?: 'Pending' | 'Approved' | 'Rejected';
-    reviewedAt?: string;
-    reviewedBy?: string;
   };
+}
+
+// devportal.kuadrant.io/v1alpha1 — APIKeyRequest CR.
+//
+// Auto-created by the devportal controller when an APIKey is declared.
+// Acts as the request envelope that approvals point at — APIKeyApproval
+// references *this* (not the APIKey directly), so the workflow can model
+// re-approvals/audit history per request.
+export interface APIKeyRequest extends K8sResourceCommon {
+  spec: {
+    apiKeyRef: {
+      name: string;
+      namespace: string;
+    };
+    apiProductRef: {
+      name: string;
+    };
+    planTier: string;
+    requestedBy: {
+      userId: string;
+      email: string;
+    };
+    useCase?: string;
+  };
+  status?: {
+    conditions?: K8sCondition[];
+  };
+}
+
+// devportal.kuadrant.io/v1alpha1 — APIKeyApproval CR.
+//
+// Created (one per review action) to approve or reject an APIKeyRequest.
+// The devportal controller watches these and updates the corresponding
+// APIKey's status.conditions accordingly. Approving twice creates two
+// APIKeyApprovals — the controller's last-wins semantics keep the final
+// state aligned with the most recent reviewedAt timestamp.
+export interface APIKeyApproval extends K8sResourceCommon {
+  spec: {
+    apiKeyRequestRef: {
+      name: string;
+    };
+    approved: boolean;
+    reviewedAt: string;        // RFC3339 — controller validates
+    reviewedBy: string;
+    reason?: string;
+    message?: string;
+  };
+  status?: {
+    conditions?: K8sCondition[];
+  };
+}
+
+// Phase reader. Walks status.conditions and returns the first type whose
+// status is "True". Defaults to "Pending" when no condition is set yet
+// (the controller hasn't observed the resource), which matches what the
+// upstream Kuadrant console plugin does and what an operator expects to
+// see in the moment a request lands.
+//
+// Note the controller emits `Denied` (not `Rejected`) when an
+// APIKeyApproval with `approved: false` is observed. We normalise that to
+// the UI label `Rejected` because users read the row through the
+// Approve/Reject button pair — calling the same outcome two different
+// names across the schema and the UI breaks the user mental model and
+// also re-enables the Reject button (the row stays "Pending" from the
+// UI's perspective and the operator clicks again, creating more
+// APIKeyApproval CRs the controller has to dedupe).
+export function getAPIKeyPhase(key: APIKey): 'Pending' | 'Approved' | 'Rejected' {
+  const conditions = key.status?.conditions ?? [];
+  for (const c of conditions) {
+    if (c.status !== 'True') continue;
+    if (c.type === 'Approved' || c.type === 'Pending') return c.type;
+    if (c.type === 'Rejected' || c.type === 'Denied') return 'Rejected';
+  }
+  return 'Pending';
 }
 
 export interface PlanPolicy extends K8sResourceCommon {
