@@ -82,6 +82,44 @@
     }
   },
   {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-plans",
+      "name": "%plugin__custom-rhcl-console~Plans%",
+      "href": "/connectivity-link/plans",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-api-products"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-apikeys",
+      "name": "%plugin__custom-rhcl-console~API Keys%",
+      "href": "/connectivity-link/apikeys",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-plans"
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/plans",
+      "component": { "$codeRef": "PlansListPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/apikeys",
+      "component": { "$codeRef": "APIKeysListPage" }
+    }
+  },
+  {
     "type": "console.page/route",
     "properties": {
       "exact": true,

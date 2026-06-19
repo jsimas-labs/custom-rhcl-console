@@ -164,6 +164,35 @@ export interface DNSPolicy extends K8sResourceCommon {
   };
 }
 
+/**
+ * PlanPolicy (extensions.kuadrant.io/v1alpha1) — declarative plan/tier
+ * definition. The Kuadrant extension controller materialises one
+ * RateLimitPolicy (and accompanying matcher predicates) per spec.plans[]
+ * entry, so this is the authoritative source for "what plans exist on
+ * this API and what does each one promise".
+ */
+export interface PlanTier {
+  /** Tier name (gold/silver/bronze/...). Matches `secret.kuadrant.io/plan-id`. */
+  tier: string;
+  /** CEL predicate the gateway uses to decide if a request belongs to this tier. */
+  predicate?: string;
+  limits?: {
+    /** Per-plan custom rate limits. Empty/missing means "no rate limit". */
+    custom?: { limit: number; window: string }[];
+  };
+}
+
+export interface PlanPolicy extends K8sResourceCommon {
+  spec?: {
+    targetRef?: PolicyTargetReference;
+    targetRefs?: PolicyTargetReference[];
+    plans?: PlanTier[];
+  };
+  status?: {
+    conditions?: K8sCondition[];
+  };
+}
+
 export interface TLSPolicy extends K8sResourceCommon {
   spec: {
     // GEP-2649: targetRefs[] is the current Gateway API form. The singular

@@ -166,13 +166,6 @@ export function getAPIKeyPhase(key: APIKey): 'Pending' | 'Approved' | 'Rejected'
   return 'Pending';
 }
 
-export interface PlanPolicy extends K8sResourceCommon {
-  spec: {
-    displayName?: string;
-    rateLimits?: {
-      daily?: number;
-      weekly?: number;
-      monthly?: number;
-    };
-  };
-}
+// PlanPolicy moved to ./policies.ts (canonical extensions.kuadrant.io/v1alpha1
+// shape with spec.plans[].tier/predicate/limits). The placeholder that used
+// to live here had speculative fields that didn't match the real CRD.

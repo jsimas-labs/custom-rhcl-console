@@ -91,7 +91,9 @@
       "RateLimitPolicyDetailPage": "./components/policies/RateLimitPolicyDetailPage",
       "TopologyPage": "./components/topology/TopologyPage",
       "APIProductListPage": "./components/api-products/APIProductListPage",
-      "APIOverviewPage": "./components/api-products/APIOverviewPage"
+      "APIOverviewPage": "./components/api-products/APIOverviewPage",
+      "APIKeysListPage": "./components/api-keys/APIKeysListPage",
+      "PlansListPage": "./components/plans/PlansListPage"
     },
     "dependencies": {
       "@console/pluginAPI": ">=4.19.0-0"

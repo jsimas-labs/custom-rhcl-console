@@ -48,6 +48,12 @@ export const TLSPolicyGVK: K8sGroupVersionKind = {
   kind: 'TLSPolicy',
 };
 
+export const PlanPolicyGVK: K8sGroupVersionKind = {
+  group: 'extensions.kuadrant.io',
+  version: 'v1alpha1',
+  kind: 'PlanPolicy',
+};
+
 export const DNSRecordGVK: K8sGroupVersionKind = {
   group: 'kuadrant.io',
   version: 'v1alpha1',
