@@ -21,6 +21,13 @@ interface FilterToolbarProps {
   statusOptions?: string[];
   selectedStatuses?: string[];
   onStatusChange?: (statuses: string[]) => void;
+  // Optional multi-select type/kind filter — used by PolicyListPage to let
+  // users narrow a long list of mixed Auth/RateLimit/DNS/TLS policies down
+  // to just the kind they care about right now.
+  typeOptions?: string[];
+  selectedTypes?: string[];
+  onTypeChange?: (types: string[]) => void;
+  typeLabel?: string;
 }
 
 const FilterToolbar: React.FC<FilterToolbarProps> = ({
@@ -33,19 +40,26 @@ const FilterToolbar: React.FC<FilterToolbarProps> = ({
   statusOptions,
   selectedStatuses = [],
   onStatusChange,
+  typeOptions,
+  selectedTypes = [],
+  onTypeChange,
+  typeLabel,
 }) => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
   const [nsOpen, setNsOpen] = React.useState(false);
   const [statusOpen, setStatusOpen] = React.useState(false);
+  const [typeOpen, setTypeOpen] = React.useState(false);
 
   const nsToggleRef = React.useRef<MenuToggleElement>(null);
   const statusToggleRef = React.useRef<MenuToggleElement>(null);
+  const typeToggleRef = React.useRef<MenuToggleElement>(null);
 
   return (
     <Toolbar clearAllFilters={() => {
       onSearchChange('');
       onNamespaceChange?.('');
       onStatusChange?.([]);
+      onTypeChange?.([]);
     }}>
       <ToolbarContent>
         <ToolbarItem>
@@ -120,6 +134,45 @@ const FilterToolbar: React.FC<FilterToolbarProps> = ({
                   isSelected={selectedStatuses.includes(status)}
                 >
                   {t(status)}
+                </SelectOption>
+              ))}
+            </Select>
+          </ToolbarItem>
+        )}
+
+        {typeOptions && onTypeChange && (
+          <ToolbarItem>
+            <Select
+              isOpen={typeOpen}
+              onOpenChange={setTypeOpen}
+              toggle={(toggleRef) => (
+                <MenuToggle
+                  ref={toggleRef || typeToggleRef}
+                  onClick={() => setTypeOpen(!typeOpen)}
+                  isExpanded={typeOpen}
+                >
+                  {selectedTypes.length > 0
+                    ? `${selectedTypes.length} selected`
+                    : t(typeLabel || 'All types')}
+                </MenuToggle>
+              )}
+              onSelect={(_e, value) => {
+                const val = value as string;
+                if (selectedTypes.includes(val)) {
+                  onTypeChange(selectedTypes.filter((t) => t !== val));
+                } else {
+                  onTypeChange([...selectedTypes, val]);
+                }
+              }}
+            >
+              {typeOptions.map((type) => (
+                <SelectOption
+                  key={type}
+                  value={type}
+                  hasCheckbox
+                  isSelected={selectedTypes.includes(type)}
+                >
+                  {t(type)}
                 </SelectOption>
               ))}
             </Select>

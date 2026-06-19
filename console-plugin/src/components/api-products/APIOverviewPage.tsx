@@ -280,7 +280,11 @@ const APIOverviewContent: React.FC<{
             <Card>
               <CardTitle>{t('Plans')}</CardTitle>
               <CardBody>
-                <PlansCards plans={plans} />
+                <PlansCards
+                  plans={plans}
+                  targetRef={targetRef}
+                  apiProductNamespace={ns}
+                />
               </CardBody>
             </Card>
           </GridItem>
