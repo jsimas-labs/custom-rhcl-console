@@ -89,7 +89,6 @@
       "HTTPRouteDetailPage": "./components/httproutes/HTTPRouteDetailPage",
       "PolicyListPage": "./components/policies/PolicyListPage",
       "RateLimitPolicyDetailPage": "./components/policies/RateLimitPolicyDetailPage",
-      "RateLimitAnalyticsPage": "./components/analytics/RateLimitAnalyticsPage",
       "TopologyPage": "./components/topology/TopologyPage",
       "APIProductListPage": "./components/api-products/APIProductListPage",
       "APIOverviewPage": "./components/api-products/APIOverviewPage"
