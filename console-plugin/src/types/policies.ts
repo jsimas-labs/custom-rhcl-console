@@ -81,12 +81,25 @@ export interface AuthPolicy extends K8sResourceCommon {
 }
 
 export interface RateLimit {
-  rates: {
+  // Sometimes omitted (unlimited tier) — the visualizer treats absent/empty
+  // rates as "Unlimited" rather than as "broken policy".
+  rates?: {
     limit: number;
     window: string;
   }[];
   counters?: string[];
-  when?: { selector: string; operator: string; value?: string }[];
+  // Two forms exist in the wild:
+  //   - Legacy expression form: { selector, operator, value }
+  //   - CEL form (Kuadrant v1+):  { predicate: "auth.kuadrant.plan == 'gold'" }
+  // The CEL form is what the cluster actually emits today; the legacy form
+  // is kept only for back-compat with older policies.
+  when?: ({
+    selector: string;
+    operator: string;
+    value?: string;
+  } | {
+    predicate: string;
+  })[];
 }
 
 export interface RateLimitPolicySpec {

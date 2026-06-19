@@ -17,9 +17,10 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useAttachedPolicies } from '../../hooks/useAttachedPolicies';
 import { POLICY_KIND_LABELS, policyResourceURL } from '../../models';
-import { PolicyAttachment } from '../../types';
+import { PolicyAttachment, RateLimitPolicy } from '../../types';
 import { isConditionTrue, getConditionMessage } from '../../utils/status';
 import { AuthPolicyEnforcedToggle } from './AuthPolicyEnforcedToggle';
+import RateLimitVisualizer from './RateLimitVisualizer';
 
 interface PolicyAttachmentViewProps {
   targetKind: string;
@@ -143,7 +144,42 @@ const PolicyCard: React.FC<{ attachment: PolicyAttachment; targetNamespace: stri
             <AuthPolicyEnforcedToggle policy={policy} namespace={targetNamespace} />
           </div>
         )}
+        {/* For RateLimitPolicy, expand the card with a compact view of the
+            limits so reviewers can see WHAT IS LIMITED without having to
+            jump to the detail page. The "View policy" link still goes to
+            the plugin-owned detail page above. */}
+        {policyKind === 'RateLimitPolicy' && (
+          <RateLimitLimitsSection policy={policy as RateLimitPolicy} ns={ns} policyName={name} />
+        )}
       </CardBody>
     </Card>
+  );
+};
+
+const RateLimitLimitsSection: React.FC<{
+  policy: RateLimitPolicy;
+  ns: string;
+  policyName: string;
+}> = ({ policy, ns, policyName }) => {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
+  const merged = {
+    ...(policy.spec?.limits || {}),
+    ...(policy.spec?.defaults?.limits || {}),
+    ...(policy.spec?.overrides?.limits || {}),
+  };
+  if (Object.keys(merged).length === 0) return null;
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--pf-v5-global--Color--200)' }}>
+        {t('Limits')}{' '}
+        <a
+          style={{ fontWeight: 400, marginLeft: 6 }}
+          href={`/connectivity-link/policies/ratelimit/${ns}/${policyName}`}
+        >
+          {t('View details')} →
+        </a>
+      </div>
+      <RateLimitVisualizer limits={merged} variant="compact" />
+    </div>
   );
 };

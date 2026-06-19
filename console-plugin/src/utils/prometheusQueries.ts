@@ -217,3 +217,49 @@ export function latencyPercentileRangeQuery(
 ): string {
   return `histogram_quantile(${percentile}, sum(rate(istio_request_duration_milliseconds_bucket{${targetSelector(namespace, name, kind)}}[${window}])) by (le))`;
 }
+
+// ---------------------------------------------------------------------------
+// Rate-limit metrics. Drilled into HTTP 429s rather than the broader 4xx
+// bucket — Kuadrant's Limitador surfaces a throttled request as exactly that
+// code through the gateway, so 429 is the precise consumer-facing signal of
+// "limit reached". 4xx would mix in auth failures and route misses.
+// ---------------------------------------------------------------------------
+
+/** Instant query: 429s/sec against a target over the given window. */
+export function rateLimitRejectionsQuery(
+  namespace: string,
+  name: string,
+  kind: 'Gateway' | 'HTTPRoute',
+  window = '5m',
+): string {
+  return `sum(rate(istio_requests_total{${targetSelector(namespace, name, kind)}, response_code="429"}[${window}]))`;
+}
+
+/** Instant query: total 429s in the lookback (used for the "Rejected (24h)" KPI). */
+export function rateLimitRejectionsTotalQuery(
+  namespace: string,
+  name: string,
+  kind: 'Gateway' | 'HTTPRoute',
+  window = '24h',
+): string {
+  return `sum(increase(istio_requests_total{${targetSelector(namespace, name, kind)}, response_code="429"}[${window}]))`;
+}
+
+/** Range query: per-bucket rates for allowed (2xx+3xx) vs throttled (429). */
+export function rateLimitAllowedRangeQuery(
+  namespace: string,
+  name: string,
+  kind: 'Gateway' | 'HTTPRoute',
+  window = '5m',
+): string {
+  return `sum(rate(istio_requests_total{${targetSelector(namespace, name, kind)}, response_code=~"[23].."}[${window}]))`;
+}
+
+export function rateLimitRejectionsRangeQuery(
+  namespace: string,
+  name: string,
+  kind: 'Gateway' | 'HTTPRoute',
+  window = '5m',
+): string {
+  return `sum(rate(istio_requests_total{${targetSelector(namespace, name, kind)}, response_code="429"}[${window}]))`;
+}

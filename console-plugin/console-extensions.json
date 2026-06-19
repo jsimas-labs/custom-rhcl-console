@@ -82,6 +82,17 @@
     }
   },
   {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-analytics-ratelimit",
+      "name": "%plugin__custom-rhcl-console~Rate-limit analytics%",
+      "href": "/connectivity-link/analytics/rate-limits",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-api-products"
+    }
+  },
+  {
     "type": "console.page/route",
     "properties": {
       "exact": true,
@@ -125,6 +136,22 @@
       "exact": true,
       "path": "/connectivity-link/policies",
       "component": { "$codeRef": "PolicyListPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/policies/ratelimit/:ns/:name",
+      "component": { "$codeRef": "RateLimitPolicyDetailPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/analytics/rate-limits",
+      "component": { "$codeRef": "RateLimitAnalyticsPage" }
     }
   },
   {
