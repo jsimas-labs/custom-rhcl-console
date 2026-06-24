@@ -6,6 +6,7 @@ import {
   Grid,
   GridItem,
 } from '@patternfly/react-core';
+import { useTranslation } from 'react-i18next';
 import TrafficMetricCard from './TrafficMetricCard';
 import { TrafficMetricData } from './mockOverviewData';
 
@@ -20,15 +21,17 @@ interface Props {
  */
 export const TrafficOverviewSection: React.FC<Props> = ({
   metrics,
-  windowLabel = '(Last 24h)',
+  windowLabel,
 }) => {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
+  const label = windowLabel ?? t('(Last 24h)');
   return (
-    <Card aria-label="Traffic overview">
+    <Card aria-label={t('Traffic overview')}>
       <CardTitle>
         <span style={{ fontSize: 16 }}>
-          Traffic Overview{' '}
+          {t('Traffic Overview')}{' '}
           <span style={{ color: 'var(--pf-v5-global--Color--200)', fontWeight: 400 }}>
-            {windowLabel}
+            {label}
           </span>
         </span>
       </CardTitle>

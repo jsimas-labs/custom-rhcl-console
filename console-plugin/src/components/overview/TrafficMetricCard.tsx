@@ -4,6 +4,7 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
 } from '@patternfly/react-icons';
+import { useTranslation } from 'react-i18next';
 import Sparkline from './Sparkline';
 import { TrafficMetricData } from './mockOverviewData';
 
@@ -18,6 +19,7 @@ interface Props {
  * so we never derive color from direction alone.
  */
 export const TrafficMetricCard: React.FC<Props> = ({ data }) => {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
   const trendColor = data.trendIsGood
     ? 'var(--pf-v5-global--success-color--100)'
     : 'var(--pf-v5-global--danger-color--100)';
@@ -29,7 +31,7 @@ export const TrafficMetricCard: React.FC<Props> = ({ data }) => {
   const trendText = `${data.trendDeltaPct}%`;
 
   return (
-    <Card isCompact aria-label={`${data.label} metric`}>
+    <Card isCompact aria-label={t('{{label}} metric', { label: t(data.label) })}>
       <CardBody>
         <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
           <FlexItem>
@@ -39,7 +41,7 @@ export const TrafficMetricCard: React.FC<Props> = ({ data }) => {
                 color: 'var(--pf-v5-global--Color--200)',
               }}
             >
-              {data.label}
+              {t(data.label)}
             </span>
           </FlexItem>
           <FlexItem>

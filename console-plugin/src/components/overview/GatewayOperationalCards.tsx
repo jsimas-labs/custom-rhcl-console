@@ -13,6 +13,7 @@ import {
   ExclamationCircleIcon,
   AngleRightIcon,
 } from '@patternfly/react-icons';
+import { useTranslation } from 'react-i18next';
 import { GatewayOpData } from './mockOverviewData';
 
 interface Props {
@@ -20,12 +21,13 @@ interface Props {
 }
 
 const HealthBadge: React.FC<{ health: GatewayOpData['health'] }> = ({ health }) => {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
   const map = {
-    healthy: { color: 'var(--pf-v5-global--success-color--100)', label: 'Healthy', icon: <CheckCircleIcon aria-hidden="true" /> },
-    warning: { color: 'var(--pf-v5-global--warning-color--100)', label: 'Warning', icon: <ExclamationTriangleIcon aria-hidden="true" /> },
-    critical: { color: 'var(--pf-v5-global--danger-color--100)', label: 'Degraded', icon: <ExclamationCircleIcon aria-hidden="true" /> },
-    info: { color: 'var(--pf-v5-global--info-color--100)', label: 'Info', icon: <CheckCircleIcon aria-hidden="true" /> },
-    accepted: { color: 'var(--pf-v5-global--info-color--100)', label: 'Accepted', icon: <CheckCircleIcon aria-hidden="true" /> },
+    healthy: { color: 'var(--pf-v5-global--success-color--100)', label: t('Healthy'), icon: <CheckCircleIcon aria-hidden="true" /> },
+    warning: { color: 'var(--pf-v5-global--warning-color--100)', label: t('Warning'), icon: <ExclamationTriangleIcon aria-hidden="true" /> },
+    critical: { color: 'var(--pf-v5-global--danger-color--100)', label: t('Degraded'), icon: <ExclamationCircleIcon aria-hidden="true" /> },
+    info: { color: 'var(--pf-v5-global--info-color--100)', label: t('Info'), icon: <CheckCircleIcon aria-hidden="true" /> },
+    accepted: { color: 'var(--pf-v5-global--info-color--100)', label: t('Accepted'), icon: <CheckCircleIcon aria-hidden="true" /> },
   };
   const { color, label, icon } = map[health];
   return (
@@ -57,17 +59,18 @@ const Metric: React.FC<{ label: string; value: string; tone?: 'good' | 'bad' | '
  * single titled section card with a "View all" link.
  */
 export const GatewayOperationalCards: React.FC<Props> = ({ gateways }) => {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
   return (
-    <Card aria-label="Gateways">
+    <Card aria-label={t('Gateways')}>
       <CardTitle>
         <Flex
           alignItems={{ default: 'alignItemsCenter' }}
           justifyContent={{ default: 'justifyContentSpaceBetween' }}
         >
-          <FlexItem>Gateways</FlexItem>
+          <FlexItem>{t('Gateways')}</FlexItem>
           <FlexItem>
             <Button variant="link" isInline component="a" href="/k8s/all-namespaces/gateway.networking.k8s.io~v1~Gateway">
-              View all
+              {t('View all')}
             </Button>
           </FlexItem>
         </Flex>
@@ -114,11 +117,11 @@ export const GatewayOperationalCards: React.FC<Props> = ({ gateways }) => {
                       spaceItems={{ default: 'spaceItemsLg' }}
                       style={{ marginTop: 10 }}
                     >
-                      <Metric label="Requests / min" value={gw.requestsPerMin.toLocaleString('en-US')} />
-                      <Metric label="Success Rate" value={`${gw.successRatePct}%`} tone={gw.successRatePct >= 95 ? 'good' : 'neutral'} />
-                      <Metric label="Error Rate" value={`${gw.errorRatePct}%`} tone={errorIsBad ? 'bad' : 'neutral'} />
-                      <Metric label="Routes" value={String(gw.routesCount)} />
-                      <Metric label="Policies" value={String(gw.policiesCount)} />
+                      <Metric label={t('Requests / min')} value={gw.requestsPerMin.toLocaleString('en-US')} />
+                      <Metric label={t('Success Rate')} value={`${gw.successRatePct}%`} tone={gw.successRatePct >= 95 ? 'good' : 'neutral'} />
+                      <Metric label={t('Error Rate')} value={`${gw.errorRatePct}%`} tone={errorIsBad ? 'bad' : 'neutral'} />
+                      <Metric label={t('Routes')} value={String(gw.routesCount)} />
+                      <Metric label={t('Policies')} value={String(gw.policiesCount)} />
                     </Flex>
                   </div>
                 </a>

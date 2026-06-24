@@ -13,6 +13,7 @@ import {
   InfoCircleIcon,
   AngleRightIcon,
 } from '@patternfly/react-icons';
+import { useTranslation } from 'react-i18next';
 import { NeedsAttentionItem } from './mockOverviewData';
 
 interface Props {
@@ -43,18 +44,19 @@ const SEVERITY_RANK: Record<NeedsAttentionItem['severity'], number> = {
  * → info so the most urgent item is at the top regardless of insertion order.
  */
 export const NeedsAttentionPanel: React.FC<Props> = ({ items, onViewAll }) => {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
   const sorted = React.useMemo(
     () => [...items].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]),
     [items],
   );
 
   return (
-    <Card aria-label="Items that need attention">
-      <CardTitle>Needs Attention</CardTitle>
+    <Card aria-label={t('Items that need attention')}>
+      <CardTitle>{t('Needs Attention')}</CardTitle>
       <CardBody>
         {sorted.length === 0 ? (
           <span style={{ color: 'var(--pf-v5-global--Color--200)', fontSize: 13 }}>
-            All clear — no operational issues at the moment.
+            {t('All clear — no operational issues at the moment.')}
           </span>
         ) : (
           <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsSm' }}>
@@ -134,7 +136,7 @@ export const NeedsAttentionPanel: React.FC<Props> = ({ items, onViewAll }) => {
         {onViewAll && sorted.length > 0 && (
           <div style={{ marginTop: 12 }}>
             <Button variant="link" isInline onClick={onViewAll}>
-              View all alerts →
+              {t('View all alerts')}
             </Button>
           </div>
         )}

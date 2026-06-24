@@ -8,6 +8,7 @@ import {
   Button,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
+import { useTranslation } from 'react-i18next';
 import Sparkline from './Sparkline';
 import { RouteTrafficRow } from './mockOverviewData';
 
@@ -20,32 +21,33 @@ interface Props {
  * attached policy count, mini traffic trend.
  */
 export const RouteTrafficTable: React.FC<Props> = ({ rows }) => {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
   return (
-    <Card aria-label="HTTPRoutes traffic">
+    <Card aria-label={t('HTTPRoutes traffic')}>
       <CardTitle>
         <Flex
           alignItems={{ default: 'alignItemsCenter' }}
           justifyContent={{ default: 'justifyContentSpaceBetween' }}
         >
-          <FlexItem>HTTPRoutes</FlexItem>
+          <FlexItem>{t('HTTPRoutes')}</FlexItem>
           <FlexItem>
             <Button variant="link" isInline component="a" href="/k8s/all-namespaces/gateway.networking.k8s.io~v1~HTTPRoute">
-              View all
+              {t('View all')}
             </Button>
           </FlexItem>
         </Flex>
       </CardTitle>
       <CardBody>
-        <Table variant="compact" borders={false} aria-label="HTTPRoute traffic">
+        <Table variant="compact" borders={false} aria-label={t('HTTPRoute traffic')}>
           <Thead>
             <Tr>
-              <Th>Route</Th>
-              <Th>Namespace</Th>
-              <Th>Gateway</Th>
-              <Th>Requests / min</Th>
-              <Th>Trend</Th>
-              <Th>Error Rate</Th>
-              <Th>Policies</Th>
+              <Th>{t('Route')}</Th>
+              <Th>{t('Namespace')}</Th>
+              <Th>{t('Gateway')}</Th>
+              <Th>{t('Requests / min')}</Th>
+              <Th>{t('Trend')}</Th>
+              <Th>{t('Error Rate')}</Th>
+              <Th>{t('Policies')}</Th>
             </Tr>
           </Thead>
           <Tbody>

@@ -13,6 +13,7 @@ import {
   ExclamationTriangleIcon,
   ExclamationCircleIcon,
 } from '@patternfly/react-icons';
+import { useTranslation } from 'react-i18next';
 import Sparkline from './Sparkline';
 import { BackendRow, HealthSeverity } from './mockOverviewData';
 
@@ -30,6 +31,7 @@ const Donut: React.FC<{ healthy: number; warning: number; critical: number }> = 
   warning,
   critical,
 }) => {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
   const size = 110;
   const r = 42;
   const cx = size / 2;
@@ -77,7 +79,7 @@ const Donut: React.FC<{ healthy: number; warning: number; critical: number }> = 
         fontSize={10}
         fill="var(--pf-v5-global--Color--200)"
       >
-        Total
+        {t('Total')}
       </text>
     </svg>
   );
@@ -91,15 +93,15 @@ const HEALTH_ICON: Record<HealthSeverity, React.ReactNode> = {
   accepted: <CheckCircleIcon color="var(--pf-v5-global--info-color--100)" aria-hidden="true" />,
 };
 
-const HEALTH_LABEL: Record<HealthSeverity, string> = {
-  healthy: 'Healthy',
-  warning: 'Warning',
-  critical: 'Down',
-  info: 'Info',
-  accepted: 'Accepted',
-};
-
 export const BackendHealthWidget: React.FC<Props> = ({ rows }) => {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
+  const healthLabel: Record<HealthSeverity, string> = {
+    healthy: t('Healthy'),
+    warning: t('Warning'),
+    critical: t('Down'),
+    info: t('Info'),
+    accepted: t('Accepted'),
+  };
   const counts = React.useMemo(() => {
     let h = 0, w = 0, c = 0;
     for (const r of rows) {
@@ -111,16 +113,16 @@ export const BackendHealthWidget: React.FC<Props> = ({ rows }) => {
   }, [rows]);
 
   return (
-    <Card aria-label="Backend health">
+    <Card aria-label={t('Backend health')}>
       <CardTitle>
         <Flex
           alignItems={{ default: 'alignItemsCenter' }}
           justifyContent={{ default: 'justifyContentSpaceBetween' }}
         >
-          <FlexItem>Backends</FlexItem>
+          <FlexItem>{t('Backends')}</FlexItem>
           <FlexItem>
             <Button variant="link" isInline component="a" href="#/backends">
-              View all
+              {t('View all')}
             </Button>
           </FlexItem>
         </Flex>
@@ -141,19 +143,19 @@ export const BackendHealthWidget: React.FC<Props> = ({ rows }) => {
                   <FlexItem>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--pf-v5-global--Color--200)' }}>
                       <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--pf-v5-global--success-color--100)' }} />
-                      {counts.h} Healthy
+                      {t('{{count}} Healthy', { count: counts.h })}
                     </span>
                   </FlexItem>
                   <FlexItem>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--pf-v5-global--Color--200)' }}>
                       <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--pf-v5-global--warning-color--100)' }} />
-                      {counts.w} Warning
+                      {t('{{count}} Warning', { count: counts.w })}
                     </span>
                   </FlexItem>
                   <FlexItem>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--pf-v5-global--Color--200)' }}>
                       <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--pf-v5-global--danger-color--100)' }} />
-                      {counts.c} Down
+                      {t('{{count}} Down', { count: counts.c })}
                     </span>
                   </FlexItem>
                 </Flex>
@@ -161,15 +163,15 @@ export const BackendHealthWidget: React.FC<Props> = ({ rows }) => {
             </Flex>
           </FlexItem>
           <FlexItem flex={{ default: 'flex_1' }}>
-            <Table variant="compact" borders={false} aria-label="Backends">
+            <Table variant="compact" borders={false} aria-label={t('Backends')}>
               <Thead>
                 <Tr>
-                  <Th>Backend</Th>
-                  <Th>Namespace</Th>
-                  <Th>Health</Th>
-                  <Th>Req / min</Th>
-                  <Th>Trend</Th>
-                  <Th>Error</Th>
+                  <Th>{t('Backend')}</Th>
+                  <Th>{t('Namespace')}</Th>
+                  <Th>{t('Health')}</Th>
+                  <Th>{t('Req / min')}</Th>
+                  <Th>{t('Trend')}</Th>
+                  <Th>{t('Error')}</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -182,7 +184,7 @@ export const BackendHealthWidget: React.FC<Props> = ({ rows }) => {
                     <Td>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                         {HEALTH_ICON[r.health]}
-                        {HEALTH_LABEL[r.health]}
+                        {healthLabel[r.health]}
                       </span>
                     </Td>
                     <Td>{r.requestsPerMin.toLocaleString('en-US')}</Td>

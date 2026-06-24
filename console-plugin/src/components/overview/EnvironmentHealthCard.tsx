@@ -12,6 +12,7 @@ import {
   InfoCircleIcon,
   AngleRightIcon,
 } from '@patternfly/react-icons';
+import { useTranslation } from 'react-i18next';
 import {
   EnvironmentHealthCardData,
   HealthSeverity,
@@ -55,11 +56,12 @@ export const EnvironmentHealthCard: React.FC<EnvironmentHealthCardProps> = ({
   data,
   iconSlot,
 }) => {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
   return (
     <Card
       isClickable
       isCompact
-      aria-label={`${data.title} health summary`}
+      aria-label={t('{{title}} health summary', { title: t(data.title) })}
     >
       <CardBody>
         <Flex
@@ -86,13 +88,17 @@ export const EnvironmentHealthCard: React.FC<EnvironmentHealthCardProps> = ({
                         color: 'var(--pf-v5-global--Color--100)',
                       }}
                     >
-                      {data.title}
+                      {t(data.title)}
                     </span>
                   </FlexItem>
                 </Flex>
               </FlexItem>
               <FlexItem>
-                <a href={data.href} style={{ display: 'inline-flex' }} aria-label={`Open all ${data.title}`}>
+                <a
+                  href={data.href}
+                  style={{ display: 'inline-flex' }}
+                  aria-label={t('Open all {{title}}', { title: t(data.title) })}
+                >
                   <AngleRightIcon
                     color="var(--pf-v5-global--Color--200)"
                     aria-hidden="true"
@@ -130,7 +136,7 @@ export const EnvironmentHealthCard: React.FC<EnvironmentHealthCardProps> = ({
                     }}
                   >
                     <SeverityDot severity={b.severity} />
-                    {b.label}
+                    {t(b.label)}
                   </span>
                 </FlexItem>
               ))}

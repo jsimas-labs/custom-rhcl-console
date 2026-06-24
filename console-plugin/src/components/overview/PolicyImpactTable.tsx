@@ -9,6 +9,7 @@ import {
   Label,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
+import { useTranslation } from 'react-i18next';
 import { PolicyImpactRow } from './mockOverviewData';
 
 interface Props {
@@ -22,43 +23,43 @@ const STATUS_COLOR: Record<PolicyImpactRow['status'], 'green' | 'blue' | 'purple
   failed: 'red',
 };
 
-const STATUS_LABEL: Record<PolicyImpactRow['status'], string> = {
-  enforced: 'Enforced',
-  accepted: 'Accepted',
-  overridden: 'Overridden',
-  failed: 'Failed',
-};
-
 /**
  * Policies viewed through an operational lens — what is each policy
  * actually doing? Status is condensed to 4 outcomes; impact column tells
  * the story ("Protecting 1 route", "Not attached", "Overridden by route").
  */
 export const PolicyImpactTable: React.FC<Props> = ({ rows }) => {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
+  const statusLabel: Record<PolicyImpactRow['status'], string> = {
+    enforced: t('Enforced'),
+    accepted: t('Accepted'),
+    overridden: t('Overridden'),
+    failed: t('Failed'),
+  };
   return (
-    <Card aria-label="Policies and their effective impact">
+    <Card aria-label={t('Policies and their effective impact')}>
       <CardTitle>
         <Flex
           alignItems={{ default: 'alignItemsCenter' }}
           justifyContent={{ default: 'justifyContentSpaceBetween' }}
         >
-          <FlexItem>Policies</FlexItem>
+          <FlexItem>{t('Policies')}</FlexItem>
           <FlexItem>
             <Button variant="link" isInline component="a" href="/k8s/all-namespaces/kuadrant.io~v1~AuthPolicy">
-              View all
+              {t('View all')}
             </Button>
           </FlexItem>
         </Flex>
       </CardTitle>
       <CardBody>
-        <Table variant="compact" borders={false} aria-label="Policy impact">
+        <Table variant="compact" borders={false} aria-label={t('Policy impact')}>
           <Thead>
             <Tr>
-              <Th>Policy</Th>
-              <Th>Namespace</Th>
-              <Th>Type</Th>
-              <Th>Status</Th>
-              <Th>Effect</Th>
+              <Th>{t('Policy')}</Th>
+              <Th>{t('Namespace')}</Th>
+              <Th>{t('Type')}</Th>
+              <Th>{t('Status')}</Th>
+              <Th>{t('Effect')}</Th>
             </Tr>
           </Thead>
           <Tbody>
@@ -68,19 +69,19 @@ export const PolicyImpactTable: React.FC<Props> = ({ rows }) => {
                   <a href={r.href}>{r.name}</a>
                 </Td>
                 <Td>{r.namespace}</Td>
-                <Td>{r.typeLabel}</Td>
+                <Td>{t(r.typeLabel)}</Td>
                 <Td>
                   <Label
                     isCompact
                     color={STATUS_COLOR[r.status]}
                     variant="outline"
                   >
-                    {STATUS_LABEL[r.status]}
+                    {statusLabel[r.status]}
                   </Label>
                 </Td>
                 <Td>
                   <span style={{ color: 'var(--pf-v5-global--Color--200)', fontSize: 13 }}>
-                    {r.impact}
+                    {t(r.impact)}
                   </span>
                 </Td>
               </Tr>

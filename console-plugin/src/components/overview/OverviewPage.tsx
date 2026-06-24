@@ -14,6 +14,7 @@ import {
   MenuToggleElement,
 } from '@patternfly/react-core';
 import { PlusCircleIcon, SyncAltIcon } from '@patternfly/react-icons';
+import { useTranslation } from 'react-i18next';
 import EnvironmentHealthSection from './EnvironmentHealthSection';
 import TrafficOverviewSection from './TrafficOverviewSection';
 import NeedsAttentionPanel from './NeedsAttentionPanel';
@@ -32,13 +33,6 @@ import {
   MOCK_BACKENDS,
   MOCK_EVENTS,
 } from './mockOverviewData';
-
-const CREATE_ACTIONS = [
-  { id: 'gateway', label: 'Gateway', href: '/k8s/all-namespaces/gateway.networking.k8s.io~v1~Gateway/~new' },
-  { id: 'httproute', label: 'HTTPRoute', href: '/k8s/all-namespaces/gateway.networking.k8s.io~v1~HTTPRoute/~new' },
-  { id: 'policy', label: 'Policy', href: '/k8s/all-namespaces/kuadrant.io~v1~AuthPolicy/~new' },
-  { id: 'apiproduct', label: 'API Product', href: '#/api-products/new' },
-];
 
 /**
  * Overview dashboard refactor — Phase 1-4 (mockup-first).
@@ -63,6 +57,7 @@ const CREATE_ACTIONS = [
  * validate visual + UX first, then swap sources without redesigning.
  */
 const OverviewPage: React.FC = () => {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
   const [now, setNow] = React.useState<Date>(() => new Date());
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
 
@@ -77,17 +72,27 @@ const OverviewPage: React.FC = () => {
 
   const lastUpdatedLabel = React.useMemo(() => {
     const diffSec = Math.max(0, Math.floor((Date.now() - now.getTime()) / 1000));
-    if (diffSec < 60) return 'just now';
+    if (diffSec < 60) return t('just now');
     const m = Math.floor(diffSec / 60);
-    return `${m}m ago`;
-  }, [now]);
+    return t('{{count}}m ago', { count: m });
+  }, [now, t]);
+
+  const createActions = React.useMemo(
+    () => [
+      { id: 'gateway', label: t('Gateway'), href: '/k8s/all-namespaces/gateway.networking.k8s.io~v1~Gateway/~new' },
+      { id: 'httproute', label: t('HTTPRoute'), href: '/k8s/all-namespaces/gateway.networking.k8s.io~v1~HTTPRoute/~new' },
+      { id: 'policy', label: t('Policy'), href: '/k8s/all-namespaces/kuadrant.io~v1~AuthPolicy/~new' },
+      { id: 'apiproduct', label: t('API Product'), href: '#/api-products/new' },
+    ],
+    [t],
+  );
 
   return (
     <>
       <PageSection variant="default">
         <Flex alignItems={{ default: 'alignItemsCenter' }}>
           <FlexItem grow={{ default: 'grow' }}>
-            <Title headingLevel="h1">Overview</Title>
+            <Title headingLevel="h1">{t('Overview')}</Title>
             <div
               style={{
                 marginTop: 4,
@@ -95,7 +100,7 @@ const OverviewPage: React.FC = () => {
                 color: 'var(--pf-v5-global--Color--200)',
               }}
             >
-              Real-time summary of your API gateway environment
+              {t('Real-time summary of your API gateway environment')}
             </div>
           </FlexItem>
           <FlexItem>
@@ -116,12 +121,12 @@ const OverviewPage: React.FC = () => {
                       onClick={() => setIsCreateOpen((o) => !o)}
                       isExpanded={isCreateOpen}
                     >
-                      Create
+                      {t('Create')}
                     </MenuToggle>
                   )}
                 >
                   <DropdownList>
-                    {CREATE_ACTIONS.map((a) => (
+                    {createActions.map((a) => (
                       <DropdownItem
                         key={a.id}
                         to={a.href}
@@ -140,13 +145,13 @@ const OverviewPage: React.FC = () => {
                     color: 'var(--pf-v5-global--Color--200)',
                   }}
                 >
-                  Last updated: {lastUpdatedLabel}
+                  {t('Last updated: {{when}}', { when: lastUpdatedLabel })}
                 </span>
               </FlexItem>
               <FlexItem>
                 <Button
                   variant="plain"
-                  aria-label="Refresh"
+                  aria-label={t('Refresh')}
                   onClick={refresh}
                 >
                   <SyncAltIcon />
