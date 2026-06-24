@@ -4,151 +4,199 @@ import {
   Title,
   Grid,
   GridItem,
-  Card,
-  CardTitle,
-  CardBody,
-  Spinner,
   Flex,
   FlexItem,
-  Label,
+  Button,
+  Dropdown,
+  DropdownList,
+  DropdownItem,
+  MenuToggle,
+  MenuToggleElement,
 } from '@patternfly/react-core';
+import { PlusCircleIcon, SyncAltIcon } from '@patternfly/react-icons';
+import EnvironmentHealthSection from './EnvironmentHealthSection';
+import TrafficOverviewSection from './TrafficOverviewSection';
+import NeedsAttentionPanel from './NeedsAttentionPanel';
+import GatewayOperationalCards from './GatewayOperationalCards';
+import PolicyImpactTable from './PolicyImpactTable';
+import RouteTrafficTable from './RouteTrafficTable';
+import BackendHealthWidget from './BackendHealthWidget';
+import RecentEventsPanel from './RecentEventsPanel';
 import {
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  ExclamationCircleIcon,
-} from '@patternfly/react-icons';
-import { useTranslation } from 'react-i18next';
-import { useResourceWithRBAC } from '../../hooks/useResourceWithRBAC';
-import { GatewayGVK, HTTPRouteGVK } from '../../models';
-import { Gateway, HTTPRoute } from '../../types';
-import { getWorstConditionSeverity } from '../../utils/status';
-import EmptyRBACState from '../common/EmptyRBACState';
-import HostnameSearch from '../common/HostnameSearch';
+  MOCK_ENVIRONMENT_HEALTH,
+  MOCK_TRAFFIC,
+  MOCK_NEEDS_ATTENTION,
+  MOCK_GATEWAYS,
+  MOCK_POLICIES,
+  MOCK_ROUTES,
+  MOCK_BACKENDS,
+  MOCK_EVENTS,
+} from './mockOverviewData';
 
+const CREATE_ACTIONS = [
+  { id: 'gateway', label: 'Gateway', href: '/k8s/all-namespaces/gateway.networking.k8s.io~v1~Gateway/~new' },
+  { id: 'httproute', label: 'HTTPRoute', href: '/k8s/all-namespaces/gateway.networking.k8s.io~v1~HTTPRoute/~new' },
+  { id: 'policy', label: 'Policy', href: '/k8s/all-namespaces/kuadrant.io~v1~AuthPolicy/~new' },
+  { id: 'apiproduct', label: 'API Product', href: '#/api-products/new' },
+];
+
+/**
+ * Overview dashboard refactor — Phase 1-4 (mockup-first).
+ *
+ * Structure (top → bottom):
+ *   1. Header (title + create actions + last-updated stamp)
+ *   2. Environment Health (5 KPI cards)
+ *   3. Traffic Overview (4 metric cards w/ sparklines)
+ *      + Needs Attention (alongside, right column)
+ *   4. Gateway operational cards | Policies | HTTPRoutes (3-column row)
+ *   5. Backends (donut + table)
+ *   6. Recent Events
+ *
+ * Data is currently mocked (mockOverviewData.ts). Phase 5 plan:
+ *   - KPI counts: useResourceWithRBAC over GatewayGVK / HTTPRouteGVK / ...
+ *   - Traffic metrics: usePrometheusTraffic (already implemented)
+ *   - Backend health: useBackendsStatus + useBackendTraffic
+ *   - Needs Attention: synth from policy.status.conditions + APIKey Pending
+ *   - Events: k8s Events API
+ *
+ * Until then, this page is a true mock — kept this way intentionally so we
+ * validate visual + UX first, then swap sources without redesigning.
+ */
 const OverviewPage: React.FC = () => {
-  const { t } = useTranslation('plugin__custom-rhcl-console');
+  const [now, setNow] = React.useState<Date>(() => new Date());
+  const [isCreateOpen, setIsCreateOpen] = React.useState(false);
 
-  const {
-    data: gateways,
-    loaded: gwLoaded,
-    hasAccess: gwAccess,
-  } = useResourceWithRBAC<Gateway>(GatewayGVK);
+  const refresh = React.useCallback(() => setNow(new Date()), []);
 
-  const {
-    data: httpRoutes,
-    loaded: routeLoaded,
-  } = useResourceWithRBAC<HTTPRoute>(HTTPRouteGVK);
+  // Update the "last updated" label every minute so it stays fresh-looking
+  // without re-fetching anything (mock data is static for now).
+  React.useEffect(() => {
+    const tid = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(tid);
+  }, []);
 
-  if (!gwLoaded || !routeLoaded) {
-    return (
-      <>
-        <PageSection variant="default">
-          <Title headingLevel="h1">{t('Connectivity Link Overview')}</Title>
-        </PageSection>
-        <PageSection isFilled>
-          <Spinner size="xl" />
-        </PageSection>
-      </>
-    );
-  }
-
-  if (!gwAccess) {
-    return (
-      <>
-        <PageSection variant="default">
-          <Title headingLevel="h1">{t('Connectivity Link Overview')}</Title>
-        </PageSection>
-        <PageSection>
-          <EmptyRBACState
-            resource={t('Gateways')}
-            verb="list"
-            group="gateway.networking.k8s.io"
-            kind="Gateway"
-          />
-        </PageSection>
-      </>
-    );
-  }
-
-  const healthyGateways = gateways.filter(
-    (gw) => getWorstConditionSeverity(gw.status?.conditions) === 'healthy',
-  );
-  const degradedGateways = gateways.filter(
-    (gw) => {
-      const s = getWorstConditionSeverity(gw.status?.conditions);
-      return s === 'warning' || s === 'critical';
-    },
-  );
+  const lastUpdatedLabel = React.useMemo(() => {
+    const diffSec = Math.max(0, Math.floor((Date.now() - now.getTime()) / 1000));
+    if (diffSec < 60) return 'just now';
+    const m = Math.floor(diffSec / 60);
+    return `${m}m ago`;
+  }, [now]);
 
   return (
     <>
       <PageSection variant="default">
-        <Flex>
+        <Flex alignItems={{ default: 'alignItemsCenter' }}>
           <FlexItem grow={{ default: 'grow' }}>
-            <Title headingLevel="h1">{t('Connectivity Link Overview')}</Title>
+            <Title headingLevel="h1">Overview</Title>
+            <div
+              style={{
+                marginTop: 4,
+                fontSize: 14,
+                color: 'var(--pf-v5-global--Color--200)',
+              }}
+            >
+              Real-time summary of your API gateway environment
+            </div>
           </FlexItem>
           <FlexItem>
-            <HostnameSearch />
+            <Flex
+              alignItems={{ default: 'alignItemsCenter' }}
+              spaceItems={{ default: 'spaceItemsSm' }}
+            >
+              <FlexItem>
+                <Dropdown
+                  isOpen={isCreateOpen}
+                  onSelect={() => setIsCreateOpen(false)}
+                  onOpenChange={(o) => setIsCreateOpen(o)}
+                  toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
+                    <MenuToggle
+                      ref={toggleRef}
+                      variant="primary"
+                      icon={<PlusCircleIcon />}
+                      onClick={() => setIsCreateOpen((o) => !o)}
+                      isExpanded={isCreateOpen}
+                    >
+                      Create
+                    </MenuToggle>
+                  )}
+                >
+                  <DropdownList>
+                    {CREATE_ACTIONS.map((a) => (
+                      <DropdownItem
+                        key={a.id}
+                        to={a.href}
+                        component="a"
+                      >
+                        {a.label}
+                      </DropdownItem>
+                    ))}
+                  </DropdownList>
+                </Dropdown>
+              </FlexItem>
+              <FlexItem>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--pf-v5-global--Color--200)',
+                  }}
+                >
+                  Last updated: {lastUpdatedLabel}
+                </span>
+              </FlexItem>
+              <FlexItem>
+                <Button
+                  variant="plain"
+                  aria-label="Refresh"
+                  onClick={refresh}
+                >
+                  <SyncAltIcon />
+                </Button>
+              </FlexItem>
+            </Flex>
           </FlexItem>
         </Flex>
       </PageSection>
+
+      {/* 2. Environment Health */}
+      <PageSection>
+        <EnvironmentHealthSection cards={MOCK_ENVIRONMENT_HEALTH} />
+      </PageSection>
+
+      {/* 3. Traffic Overview + Needs Attention side-by-side */}
       <PageSection>
         <Grid hasGutter>
-          <GridItem span={4}>
-            <Card>
-              <CardTitle>{t('Gateways')}</CardTitle>
-              <CardBody>
-                <Flex spaceItems={{ default: 'spaceItemsMd' }}>
-                  <FlexItem>
-                    <Label color="grey">{t('{{count}} total', { count: gateways.length })}</Label>
-                  </FlexItem>
-                  <FlexItem>
-                    <Label color="green" icon={<CheckCircleIcon />}>
-                      {t('{{count}} healthy', { count: healthyGateways.length })}
-                    </Label>
-                  </FlexItem>
-                  {degradedGateways.length > 0 && (
-                    <FlexItem>
-                      <Label color="orange" icon={<ExclamationTriangleIcon />}>
-                        {t('{{count}} degraded', { count: degradedGateways.length })}
-                      </Label>
-                    </FlexItem>
-                  )}
-                </Flex>
-              </CardBody>
-            </Card>
+          <GridItem lg={8} md={12}>
+            <TrafficOverviewSection metrics={MOCK_TRAFFIC} />
           </GridItem>
-          <GridItem span={4}>
-            <Card>
-              <CardTitle>{t('HTTPRoutes')}</CardTitle>
-              <CardBody>
-                <Label color="grey">
-                  {t('{{count}} total', { count: httpRoutes.length })}
-                </Label>
-              </CardBody>
-            </Card>
+          <GridItem lg={4} md={12}>
+            <NeedsAttentionPanel items={MOCK_NEEDS_ATTENTION} onViewAll={() => undefined} />
           </GridItem>
-          <GridItem span={4}>
-            <Card>
-              <CardTitle>{t('Gateway health')}</CardTitle>
-              <CardBody>
-                {degradedGateways.length === 0 ? (
-                  <Label color="green" icon={<CheckCircleIcon />}>
-                    {t('All systems operational')}
-                  </Label>
-                ) : (
-                  <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsSm' }}>
-                    {degradedGateways.map((gw) => (
-                      <FlexItem key={gw.metadata?.uid}>
-                        <Label color="red" icon={<ExclamationCircleIcon />}>
-                          {gw.metadata?.namespace}/{gw.metadata?.name}
-                        </Label>
-                      </FlexItem>
-                    ))}
-                  </Flex>
-                )}
-              </CardBody>
-            </Card>
+        </Grid>
+      </PageSection>
+
+      {/* 4. Gateways | Policies | HTTPRoutes */}
+      <PageSection>
+        <Grid hasGutter>
+          <GridItem lg={4} md={12}>
+            <GatewayOperationalCards gateways={MOCK_GATEWAYS} />
+          </GridItem>
+          <GridItem lg={4} md={12}>
+            <PolicyImpactTable rows={MOCK_POLICIES} />
+          </GridItem>
+          <GridItem lg={4} md={12}>
+            <RouteTrafficTable rows={MOCK_ROUTES} />
+          </GridItem>
+        </Grid>
+      </PageSection>
+
+      {/* 5. Backends */}
+      <PageSection>
+        <Grid hasGutter>
+          <GridItem lg={8} md={12}>
+            <BackendHealthWidget rows={MOCK_BACKENDS} />
+          </GridItem>
+          <GridItem lg={4} md={12}>
+            <RecentEventsPanel events={MOCK_EVENTS} />
           </GridItem>
         </Grid>
       </PageSection>
