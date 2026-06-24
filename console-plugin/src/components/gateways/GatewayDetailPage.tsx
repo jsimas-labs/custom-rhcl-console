@@ -44,6 +44,7 @@ import { Gateway, HTTPRoute, K8sCondition } from '../../types';
 import { getGatewayExternalHostnames } from '../../utils/hostname';
 import StatusLabel from '../common/StatusLabel';
 import { OpenInGrafanaButton } from '../common/OpenInGrafanaButton';
+import { OpenInTempoButton } from '../common/OpenInTempoButton';
 import HostnameCell from '../common/HostnameCell';
 import TrafficPanel from '../common/TrafficPanel';
 import { PolicyAttachmentView } from '../policies/PolicyAttachmentView';
@@ -99,14 +100,20 @@ const GatewayDetailPage: React.FC = () => {
           <Title headingLevel="h1">
             {name} <StatusLabel conditions={gateway.status?.conditions} />
           </Title>
-          {/* Istio's `source_workload` label is `<gateway-name>-<class-name>`
-              (e.g. `rhcl-apps-gateway-openshift-default`). A `<name>-.*` regex
-              covers every gateway-class workload backing this Gateway CR. */}
-          <OpenInGrafanaButton
-            dashboard="api-overview"
-            label={t('Gateway traffic')}
-            vars={{ gateway: `${name}-.*` }}
-          />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {/* Istio's `source_workload` label is `<gateway-name>-<class-name>`
+                (e.g. `rhcl-apps-gateway-openshift-default`). A `<name>-.*` regex
+                covers every gateway-class workload backing this Gateway CR. */}
+            <OpenInGrafanaButton
+              dashboard="api-overview"
+              label={t('Gateway traffic')}
+              vars={{ gateway: `${name}-.*` }}
+            />
+            <OpenInTempoButton
+              label={t('Gateway traces')}
+              vars={{ serviceName: 'rhcl-gateway', lookback: '1h' }}
+            />
+          </div>
         </div>
       </PageSection>
       <PageSection>

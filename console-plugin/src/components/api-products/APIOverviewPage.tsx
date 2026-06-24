@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next';
 import { APIProductGVK, HTTPRouteGVK } from '../../models';
 import { APIProduct, HTTPRoute } from '../../types';
 import { OpenInGrafanaButton } from '../common/OpenInGrafanaButton';
+import { OpenInTempoButton } from '../common/OpenInTempoButton';
 import { hostnameToURL } from '../../utils/hostname';
 import PlansCards from './PlansCards';
 import APIKeysTable from './APIKeysTable';
@@ -214,6 +215,22 @@ const APIOverviewContent: React.FC<{
                 label={t('Consumers')}
                 variant="tertiary"
                 vars={{ httproute: `${targetRef.namespace || ns}.${targetRef.name}.*` }}
+              />
+            </FlexItem>
+          )}
+          {targetRef?.kind === 'HTTPRoute' && targetRef?.name && (
+            <FlexItem>
+              {/* Tempo search filtered to the gateway service + http.route
+                  tag. From there the trace tree drills into wasm-shim,
+                  limitador, and the auto-instrumented banking-api spans. */}
+              <OpenInTempoButton
+                label={t('Traces')}
+                variant="tertiary"
+                vars={{
+                  serviceName: 'rhcl-gateway',
+                  tags: { 'http.route': targetRef.name },
+                  lookback: '1h',
+                }}
               />
             </FlexItem>
           )}
