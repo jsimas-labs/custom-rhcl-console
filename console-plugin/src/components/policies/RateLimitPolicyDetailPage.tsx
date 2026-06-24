@@ -166,7 +166,7 @@ const RateLimitPolicyDetailPage: React.FC = () => {
             <OpenInGrafanaButton
               dashboard="api-overview"
               label={t('API metrics')}
-              vars={{ httproute: `${targetNs}.${targetRef.name}.*` }}
+              vars={{ httproute: `${targetNs}.${targetRef.name}` }}
             />
           )}
         </div>

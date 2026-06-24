@@ -196,15 +196,17 @@ const APIOverviewContent: React.FC<{
             <span>Version: {version}</span>
           </FlexItem>
           {/* Deep-link into Grafana, scoped to this API Product's HTTPRoute
-              and per-consumer dashboards. Filter uses route_name regex so
-              all rules of the HTTPRoute (`.0`, `.1`, ...) match. */}
+              and per-consumer dashboards. The dashboard template var has a
+              regex that already strips the trailing `.<rule_idx>` from the
+              Istio route_name label, so we send `<ns>.<httproute>` (without
+              a `.*` suffix) — that's the exact shape the dropdown lists. */}
           {targetRef?.kind === 'HTTPRoute' && targetRef?.name && (
             <FlexItem>
               <OpenInGrafanaButton
                 dashboard="api-overview"
                 label={t('Traffic')}
                 variant="tertiary"
-                vars={{ httproute: `${targetRef.namespace || ns}.${targetRef.name}.*` }}
+                vars={{ httproute: `${targetRef.namespace || ns}.${targetRef.name}` }}
               />
             </FlexItem>
           )}
@@ -214,7 +216,7 @@ const APIOverviewContent: React.FC<{
                 dashboard="api-consumers"
                 label={t('Consumers')}
                 variant="tertiary"
-                vars={{ httproute: `${targetRef.namespace || ns}.${targetRef.name}.*` }}
+                vars={{ httproute: `${targetRef.namespace || ns}.${targetRef.name}` }}
               />
             </FlexItem>
           )}
