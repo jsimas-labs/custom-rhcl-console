@@ -119,15 +119,41 @@ The two-stage Dockerfile uses `ubi9/nodejs-22` for the build and
 
 ## Deploying to OpenShift
 
+The plugin pod runs an nginx that serves the bundled assets over **HTTPS on
+port 9001** using a service-CA-signed certificate the OpenShift platform
+mints automatically. The Console requires HTTPS for plugin backends —
+deploying without the TLS mount surfaces as "Failed to get a valid plugin
+manifest" errors and is the most common first-time mistake.
+
 ### 1. Create namespace and deploy the plugin server
 
 ```bash
 export RHCL_CONSOLE_NS=custom-rhcl-console
-export RHCL_CONSOLE_IMAGE=quay.io/jsimas/custom-rhcl-console:latest
+export RHCL_CONSOLE_IMAGE=quay.io/hodrigohamalho/custom-rhcl-console:latest
 
 oc new-project "$RHCL_CONSOLE_NS" || true
 
 cat <<EOF | oc apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: custom-rhcl-console
+  namespace: $RHCL_CONSOLE_NS
+  labels:
+    app: custom-rhcl-console
+  annotations:
+    # Triggers the OpenShift service-CA operator to mint a TLS
+    # cert+key Secret named below and rotate it before expiry.
+    # The pod mounts the same Secret at /var/serving-cert.
+    service.beta.openshift.io/serving-cert-secret-name: custom-rhcl-console-tls
+spec:
+  selector:
+    app: custom-rhcl-console
+  ports:
+    - port: 9001
+      targetPort: 9001
+      protocol: TCP
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -148,31 +174,26 @@ spec:
       containers:
         - name: custom-rhcl-console
           image: $RHCL_CONSOLE_IMAGE
+          imagePullPolicy: Always
           ports:
-            - containerPort: 8080
+            - name: https
+              containerPort: 9001
               protocol: TCP
+          volumeMounts:
+            - name: serving-cert
+              mountPath: /var/serving-cert
+              readOnly: true
           resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
-              memory: 128Mi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: custom-rhcl-console
-  namespace: $RHCL_CONSOLE_NS
-  labels:
-    app: custom-rhcl-console
-spec:
-  selector:
-    app: custom-rhcl-console
-  ports:
-    - port: 9001
-      targetPort: 8080
-      protocol: TCP
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { cpu: 200m, memory: 256Mi }
+      volumes:
+        - name: serving-cert
+          secret:
+            # Matches the Service annotation above. The Secret is
+            # populated asynchronously by the service-CA operator; the
+            # pod may CrashLoop briefly on the very first start while
+            # the cert lands.
+            secretName: custom-rhcl-console-tls
 EOF
 ```
 
@@ -207,14 +228,110 @@ oc patch console.operator.openshift.io cluster \
 After a few seconds the OpenShift Console reloads and the
 **Connectivity Link** section appears in the admin navigation sidebar.
 
+### 4. (Optional) Runtime configuration — point at the customer's Grafana / Tempo
+
+By default the plugin's "Open in Grafana" and "View trace" deeplinks look
+for the in-cluster instances provisioned by the
+[rhcl-lab Ansible role](https://github.com/redhat-banco-do-brasil/rhcl-lab):
+
+| Default | Namespace | Route |
+|---|---|---|
+| Grafana | `rhcl-grafana` | `rhcl-grafana-route` |
+| Tempo gateway | `tempo` | `tempo-tempo-rhcl-gateway` |
+
+On clusters where the customer already has Grafana / Tempo managed
+out-of-band, create the following ConfigMap to point the plugin at those
+instances instead — every field is optional, missing keys fall back to
+the defaults above:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-rhcl-console-config
+  namespace: custom-rhcl-console
+data:
+  # Grafana — discover the route name with `oc get route -A | grep -i grafana`
+  grafanaNamespace: monitoring
+  grafanaRouteName: grafana
+  grafanaDashboardPrefix: rhcl-     # leave default unless the imported JSONs were renamed
+
+  # Tempo — discover with `oc get route -A | grep -i tempo`
+  tempoNamespace: tempo
+  tempoGatewayRouteName: tempo-tempo-rhcl-gateway
+  tempoStackName: tempo-rhcl
+```
+
+After applying, restart the plugin pod so the watch picks up the new
+config immediately:
+
+```bash
+oc -n custom-rhcl-console rollout restart deploy/custom-rhcl-console
+```
+
+If the ConfigMap doesn't exist, the buttons stay functional pointing at
+the defaults (or render disabled with a tooltip when the route is
+missing) — nothing breaks.
+
+### 5. (Optional) APIKey Secrets — demo subscribers
+
+The plugin reads APIKey Secrets directly from the cluster. Create at
+least one per subscriber to see the "API Keys" page populated:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: banking-api-key-alice
+  namespace: rhcl-apps
+  labels:
+    # Kuadrant uses this label to discover api-key Secrets for the
+    # AuthPolicy targeting the banking-api HTTPRoute. The label key
+    # must match the AuthPolicy's `apiKey.selector.matchLabels`.
+    kuadrant.io/apikeys-by: api-key
+    app: banking-api
+  annotations:
+    secret.kuadrant.io/user-id: alice
+    secret.kuadrant.io/plan-id: gold     # used by the plan-cards UI
+stringData:
+  api_key: alice-gold-secret             # demo value — change for real envs
+type: Opaque
+```
+
+The Secrets are surfaced cluster-wide on the **API Keys** page (with
+approve/reject actions when paired with `APIKey` CRs) and on each
+APIProduct's detail page.
+
 ### Verification
 
-1. Open the OpenShift Console and navigate to **Connectivity Link → Overview**.
-2. Confirm the gateway summary cards render (or an RBAC empty state if the
-   user lacks `list` on `gateway.networking.k8s.io/gateways`).
-3. Navigate to **Gateways** — hostnames should be visible inline on every row.
-4. Navigate to **API Products** — the business-friendly interface should show
-   without any YAML or raw Kubernetes terminology.
+1. Confirm the pod is **2/2 Running** (the second container is the
+   service-CA-injected cert reload sidecar on some OCP versions — on a
+   plain pod it's just `1/1`):
+
+   ```bash
+   oc -n custom-rhcl-console get pods
+   oc -n custom-rhcl-console get secret custom-rhcl-console-tls   # cert+key materialized
+   ```
+
+2. Open the OpenShift Console and navigate to **Connectivity Link → Overview**.
+3. Confirm the 5 Environment Health cards render (or an RBAC empty state
+   if the user lacks `list` on `gateway.networking.k8s.io/gateways`).
+4. Open a Gateway / HTTPRoute / APIProduct detail page and confirm the
+   **Open in Grafana** and **View trace** buttons resolve:
+   - Enabled and clickable when the in-cluster Grafana / Tempo exist
+     (or the runtime ConfigMap in step 4 above is set).
+   - Visible but disabled (with a tooltip) when neither is installed.
+5. Navigate to **API Products** — the business-friendly interface should
+   show without any YAML or raw Kubernetes terminology.
+
+### Common first-time issues
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Console shows "Failed to get a valid plugin manifest" | Pod is serving HTTP on 8080 instead of HTTPS on 9001 | Use the Deployment from step 1 — the manifest in OpenShift docs is HTTP, this plugin needs the TLS mount |
+| Pod CrashLoopBackOff with `tls: no such file or directory` | service-CA hasn't materialized the Secret yet | Wait ~30s; if it persists, check the Service annotation matches the volume `secretName` |
+| Pod runs but plugin doesn't appear in nav | Plugin not in `console.operator.openshift.io/cluster` | Re-run step 3, then `oc -n openshift-console rollout restart deploy/console` |
+| "Open in Grafana" button disabled | Default route `rhcl-grafana/rhcl-grafana-route` not found | Either install the Ansible `grafana` role or create the ConfigMap in step 4 above |
 
 ## Removing the plugin
 
@@ -228,11 +345,19 @@ oc get console.operator.openshift.io cluster -o json \
   | jq '.spec.plugins = [.spec.plugins[] | select(. != "custom-rhcl-console")]' \
   | oc apply -f -
 
-# Delete the resources
+# Delete the plugin manifest
 oc delete consoleplugin custom-rhcl-console
-oc delete deployment,service -n "$RHCL_CONSOLE_NS" -l app=custom-rhcl-console
+
+# Delete the workload + Service (service-CA cleans the Secret automatically)
+oc delete deployment,service,configmap \
+  -n "$RHCL_CONSOLE_NS" \
+  -l app=custom-rhcl-console
+oc delete configmap custom-rhcl-console-config -n "$RHCL_CONSOLE_NS" --ignore-not-found
 oc delete project "$RHCL_CONSOLE_NS"
 ```
+
+The APIKey Secrets in `rhcl-apps` (step 5) are owned by your application,
+not the plugin — leave them in place when removing the plugin only.
 
 ## RBAC requirements
 
@@ -246,6 +371,19 @@ proxy. Users see only the resources their cluster RBAC allows.
 | App team operator | `view`/`edit` on their app namespace + `get` on the gateway namespace |
 | API product owner | `view` on app namespaces |
 | PoC reviewer | `view` cluster-wide |
+
+Additionally, **any signed-in user** the plugin renders for needs:
+
+| Resource | Verb | Why |
+|---|---|---|
+| `route.openshift.io/routes` in `rhcl-grafana` (or override ns) | `get`, `watch` | Resolve "Open in Grafana" deeplink URL |
+| `route.openshift.io/routes` in `tempo` (or override ns) | `get`, `watch` | Resolve "View trace" deeplink URL |
+| `tempo.grafana.com/tempostacks` in `tempo` | `get`, `watch` | Read tenant name for the Tempo gateway URL |
+| `configmaps` in `custom-rhcl-console` namespace, name `custom-rhcl-console-config` | `get`, `watch` | Read runtime configuration overrides (Grafana/Tempo namespace/route) |
+
+These reads default to `system:authenticated` on a stock cluster and
+generally don't need extra RoleBindings. On clusters with restrictive
+default RBAC, you'll need to grant them explicitly.
 
 ## Technology stack
 
