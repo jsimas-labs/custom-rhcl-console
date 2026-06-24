@@ -82,7 +82,7 @@ const OverviewPage: React.FC = () => {
       { id: 'gateway', label: t('Gateway'), href: '/k8s/all-namespaces/gateway.networking.k8s.io~v1~Gateway/~new' },
       { id: 'httproute', label: t('HTTPRoute'), href: '/k8s/all-namespaces/gateway.networking.k8s.io~v1~HTTPRoute/~new' },
       { id: 'policy', label: t('Policy'), href: '/k8s/all-namespaces/kuadrant.io~v1~AuthPolicy/~new' },
-      { id: 'apiproduct', label: t('API Product'), href: '#/api-products/new' },
+      { id: 'apiproduct', label: t('API Product'), href: '/k8s/all-namespaces/devportal.kuadrant.io~v1alpha1~APIProduct/~new' },
     ],
     [t],
   );

@@ -170,7 +170,7 @@ export const MOCK_ENVIRONMENT_HEALTH: EnvironmentHealthCardData[] = [
       { label: 'Accepted', count: 2, severity: 'accepted' },
       { label: 'Overridden', count: 1, severity: 'info' },
     ],
-    href: '#/policies',
+    href: '/connectivity-link/policies',
   },
   {
     id: 'backends',
@@ -181,7 +181,7 @@ export const MOCK_ENVIRONMENT_HEALTH: EnvironmentHealthCardData[] = [
       { label: 'Warning', count: 1, severity: 'warning' },
       { label: 'Down', count: 0, severity: 'critical' },
     ],
-    href: '#/backends',
+    href: '/connectivity-link/httproutes',
   },
   {
     id: 'api-products',
@@ -192,7 +192,7 @@ export const MOCK_ENVIRONMENT_HEALTH: EnvironmentHealthCardData[] = [
       { label: 'Draft', count: 0, severity: 'info' },
       { label: 'Deprecated', count: 0, severity: 'warning' },
     ],
-    href: '#/api-products',
+    href: '/connectivity-link/api-products',
   },
 ];
 
@@ -241,7 +241,7 @@ export const MOCK_NEEDS_ATTENTION: NeedsAttentionItem[] = [
     severity: 'warning',
     title: 'Policy ipfilter-ip-acl is not enforced',
     detail: 'It is accepted but not attached to any route',
-    href: '#/policies/ipfilter-ip-acl',
+    href: '/connectivity-link/policies',
     occurredAt: '10m ago',
   },
   {
@@ -249,7 +249,7 @@ export const MOCK_NEEDS_ATTENTION: NeedsAttentionItem[] = [
     severity: 'warning',
     title: 'DNS policy rhcl-apps-gateway-dns pending',
     detail: 'Waiting for reconciliation',
-    href: '#/policies/rhcl-apps-gateway-dns',
+    href: '/connectivity-link/policies',
     occurredAt: '25m ago',
   },
   {
@@ -257,7 +257,7 @@ export const MOCK_NEEDS_ATTENTION: NeedsAttentionItem[] = [
     severity: 'critical',
     title: '12% errors detected on rhcl-apps-gateway',
     detail: 'Error rate is higher than the configured threshold (5%)',
-    href: '#/gateways/rhcl-apps-gateway',
+    href: '/connectivity-link/gateways/openshift-ingress/rhcl-apps-gateway',
     occurredAt: '12m ago',
   },
   {
@@ -265,7 +265,7 @@ export const MOCK_NEEDS_ATTENTION: NeedsAttentionItem[] = [
     severity: 'info',
     title: '3 API keys waiting approval',
     detail: 'Require your attention',
-    href: '#/api-keys',
+    href: '/connectivity-link/apikeys',
     occurredAt: '1h ago',
   },
 ];
@@ -281,7 +281,7 @@ export const MOCK_GATEWAYS: GatewayOpData[] = [
     errorRatePct: 12,
     routesCount: 2,
     policiesCount: 3,
-    href: '#/gateways/rhcl-apps-gateway',
+    href: '/connectivity-link/gateways/openshift-ingress/rhcl-apps-gateway',
   },
   {
     id: 'gw-2',
@@ -293,7 +293,7 @@ export const MOCK_GATEWAYS: GatewayOpData[] = [
     errorRatePct: 0.8,
     routesCount: 1,
     policiesCount: 2,
-    href: '#/gateways/data-science-gateway',
+    href: '/connectivity-link/gateways/redhat-ods-applications/data-science-gateway',
   },
   {
     id: 'gw-3',
@@ -305,7 +305,7 @@ export const MOCK_GATEWAYS: GatewayOpData[] = [
     errorRatePct: 100,
     routesCount: 0,
     policiesCount: 1,
-    href: '#/gateways/rhcl-mcp-gateway',
+    href: '/connectivity-link/gateways/mcp-gateway/rhcl-mcp-gateway',
   },
 ];
 
@@ -318,7 +318,7 @@ export const MOCK_POLICIES: PolicyImpactRow[] = [
     typeLabel: 'Authentication',
     status: 'enforced',
     impact: 'Protecting 1 route',
-    href: '#/policies/banking-api-apikey',
+    href: '/connectivity-link/policies',
   },
   {
     id: 'pol-2',
@@ -328,7 +328,7 @@ export const MOCK_POLICIES: PolicyImpactRow[] = [
     typeLabel: 'IP Filtering',
     status: 'accepted',
     impact: 'Not attached',
-    href: '#/policies/ipfilter-ip-acl',
+    href: '/connectivity-link/policies',
   },
   {
     id: 'pol-3',
@@ -338,7 +338,7 @@ export const MOCK_POLICIES: PolicyImpactRow[] = [
     typeLabel: 'DNS',
     status: 'accepted',
     impact: 'Pending',
-    href: '#/policies/rhcl-apps-gateway-dns',
+    href: '/connectivity-link/policies',
   },
   {
     id: 'pol-4',
@@ -348,7 +348,7 @@ export const MOCK_POLICIES: PolicyImpactRow[] = [
     typeLabel: 'Authentication',
     status: 'overridden',
     impact: 'Overridden by route',
-    href: '#/policies/rhcl-apps-gateway-deny-all',
+    href: '/connectivity-link/policies',
   },
   {
     id: 'pol-5',
@@ -358,7 +358,7 @@ export const MOCK_POLICIES: PolicyImpactRow[] = [
     typeLabel: 'Authentication',
     status: 'accepted',
     impact: 'Not attached',
-    href: '#/policies/rhcl-mcp-gateway-deny-all',
+    href: '/connectivity-link/policies',
   },
 ];
 
@@ -372,7 +372,7 @@ export const MOCK_ROUTES: RouteTrafficRow[] = [
     errorRatePct: 0.8,
     policiesCount: 4,
     sparkline: trendUp(6000, 0.08),
-    href: '#/httproutes/banking-api-connectivity',
+    href: '/connectivity-link/httproutes/rhcl-apps/banking-api-connectivity',
   },
   {
     id: 'rt-2',
@@ -383,7 +383,7 @@ export const MOCK_ROUTES: RouteTrafficRow[] = [
     errorRatePct: 0,
     policiesCount: 1,
     sparkline: trendFlat(1200, 0.06),
-    href: '#/httproutes/ipfilter',
+    href: '/connectivity-link/httproutes/rhcl-apps/ipfilter',
   },
   {
     id: 'rt-3',
@@ -394,7 +394,7 @@ export const MOCK_ROUTES: RouteTrafficRow[] = [
     errorRatePct: 0,
     policiesCount: 2,
     sparkline: trendFlat(320, 0.05),
-    href: '#/httproutes/oauth-callback-route',
+    href: '/connectivity-link/httproutes/openshift-ingress/oauth-callback-route',
   },
   {
     id: 'rt-4',
@@ -405,7 +405,7 @@ export const MOCK_ROUTES: RouteTrafficRow[] = [
     errorRatePct: 0,
     policiesCount: 1,
     sparkline: trendFlat(210, 0.07),
-    href: '#/httproutes/rhods-dashboard',
+    href: '/connectivity-link/httproutes/redhat-ods-applications/rhods-dashboard',
   },
 ];
 
@@ -419,7 +419,7 @@ export const MOCK_BACKENDS: BackendRow[] = [
     requestsPerMin: 4100,
     errorRatePct: 0.7,
     sparkline: trendUp(4000, 0.06),
-    href: '#/backends/banking-api-v1',
+    href: '/connectivity-link/httproutes',
   },
   {
     id: 'be-2',
@@ -430,7 +430,7 @@ export const MOCK_BACKENDS: BackendRow[] = [
     requestsPerMin: 1800,
     errorRatePct: 0.6,
     sparkline: trendUp(1700, 0.07),
-    href: '#/backends/banking-api-v2',
+    href: '/connectivity-link/httproutes',
   },
   {
     id: 'be-3',
@@ -441,7 +441,7 @@ export const MOCK_BACKENDS: BackendRow[] = [
     requestsPerMin: 430,
     errorRatePct: 4.2,
     sparkline: trendFlat(420, 0.08),
-    href: '#/backends/ml-model-api',
+    href: '/connectivity-link/httproutes',
   },
   {
     id: 'be-4',
@@ -452,7 +452,7 @@ export const MOCK_BACKENDS: BackendRow[] = [
     requestsPerMin: 250,
     errorRatePct: 0.2,
     sparkline: trendFlat(250, 0.05),
-    href: '#/backends/chat-service',
+    href: '/connectivity-link/httproutes',
   },
 ];
 
@@ -463,7 +463,7 @@ export const MOCK_EVENTS: RecentEvent[] = [
     title: 'API Key approved',
     detail: 'alice@bb.com.br (Gold Plan) has been approved',
     severity: 'success',
-    href: '#/api-keys/alice',
+    href: '/connectivity-link/apikeys',
   },
   {
     id: 'ev-2',
@@ -471,7 +471,7 @@ export const MOCK_EVENTS: RecentEvent[] = [
     title: 'Policy updated',
     detail: 'Rate limit policy gold-tier has been updated',
     severity: 'info',
-    href: '#/policies/gold-tier',
+    href: '/connectivity-link/policies',
   },
   {
     id: 'ev-3',
@@ -479,7 +479,7 @@ export const MOCK_EVENTS: RecentEvent[] = [
     title: 'Backend warning',
     detail: 'ml-model-api latency p95 is above the threshold (p95 > 500ms)',
     severity: 'warning',
-    href: '#/backends/ml-model-api',
+    href: '/connectivity-link/httproutes',
   },
   {
     id: 'ev-4',
@@ -487,6 +487,6 @@ export const MOCK_EVENTS: RecentEvent[] = [
     title: 'HTTPRoute created',
     detail: 'oauth-callback-route has been created',
     severity: 'info',
-    href: '#/httproutes/oauth-callback-route',
+    href: '/connectivity-link/httproutes/openshift-ingress/oauth-callback-route',
   },
 ];
