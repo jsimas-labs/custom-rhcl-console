@@ -36,6 +36,7 @@ import { HTTPRoute, K8sCondition } from '../../types';
 import { hostnameToURL } from '../../utils/hostname';
 import StatusLabel from '../common/StatusLabel';
 import { OpenInGrafanaButton } from '../common/OpenInGrafanaButton';
+import { OpenInTempoButton } from '../common/OpenInTempoButton';
 import TrafficPanel from '../common/TrafficPanel';
 import { PolicyAttachmentView } from '../policies/PolicyAttachmentView';
 import { EffectivePolicyStack } from '../policies/EffectivePolicyStack';
@@ -87,13 +88,27 @@ const HTTPRouteDetailPage: React.FC = () => {
           <Title headingLevel="h1">
             {name} <StatusLabel conditions={parentConditions} />
           </Title>
-          {/* Istio reports per-rule route_name as `<ns>.<httproute>.<rule_idx>`,
-              so a `<ns>.<name>.*` regex covers every rule on this HTTPRoute. */}
-          <OpenInGrafanaButton
-            dashboard="api-overview"
-            label={t('Traffic')}
-            vars={{ httproute: `${ns}.${name}.*` }}
-          />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {/* Istio reports per-rule route_name as `<ns>.<httproute>.<rule_idx>`,
+                so a `<ns>.<name>.*` regex covers every rule on this HTTPRoute. */}
+            <OpenInGrafanaButton
+              dashboard="api-overview"
+              label={t('Traffic')}
+              vars={{ httproute: `${ns}.${name}.*` }}
+            />
+            {/* Tempo Jaeger UI pre-filtered to spans that hit this route on
+                the gateway. service.name=rhcl-gateway lands you on the
+                gateway-level spans; from there the trace tree drills into
+                wasm-shim/limitador/banking-api children. */}
+            <OpenInTempoButton
+              label={t('Traces')}
+              vars={{
+                serviceName: 'rhcl-gateway',
+                tags: { 'http.route': name || '' },
+                lookback: '1h',
+              }}
+            />
+          </div>
         </div>
       </PageSection>
       <PageSection>
