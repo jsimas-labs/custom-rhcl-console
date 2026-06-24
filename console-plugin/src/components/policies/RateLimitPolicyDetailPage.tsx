@@ -37,12 +37,14 @@ import {
   RateLimit,
 } from '../../types';
 import { primaryTargetRef } from '../../utils/policyTargets';
+import { getEnforcementState } from '../../utils/status';
 import StatusLabel from '../common/StatusLabel';
 import { OpenInGrafanaButton } from '../common/OpenInGrafanaButton';
 import TopConsumers from '../api-products/TopConsumers';
 import RateLimitVisualizer from './RateLimitVisualizer';
 import RateLimitOperationalMetrics from './RateLimitOperationalMetrics';
 import RateLimitTrendChart from './RateLimitTrendChart';
+import PartialEnforcementBanner from './PartialEnforcementBanner';
 
 /**
  * Plugin-owned detail view for a RateLimitPolicy.
@@ -169,6 +171,16 @@ const RateLimitPolicyDetailPage: React.FC = () => {
           )}
         </div>
       </PageSection>
+
+      {targetRef && ns && getEnforcementState(policy.status?.conditions) === 'partially' && (
+        <PageSection>
+          <PartialEnforcementBanner
+            policyKind="RateLimitPolicy"
+            targetRef={targetRef}
+            policyNamespace={ns}
+          />
+        </PageSection>
+      )}
 
       <PageSection>
         <Grid hasGutter>

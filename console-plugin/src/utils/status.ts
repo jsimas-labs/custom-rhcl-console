@@ -51,6 +51,29 @@ export function getConditionMessage(
   return c?.message || '';
 }
 
+/**
+ * Distinguish between Kuadrant's "fully enforced" and "partially enforced"
+ * states. The controller reports both as Enforced=True; the only way to
+ * tell them apart is the `message` field. When a Gateway-level policy uses
+ * `spec.defaults`, any HTTPRoute attached to the gateway that has its own
+ * policy of the same kind overrides the default — so the gateway policy
+ * only applies to the routes WITHOUT their own policy, and the controller
+ * marks it "partially enforced". (Gateway API GEP-713 defaults semantics.)
+ *
+ * Returns:
+ *   - 'fully'      → "successfully enforced"
+ *   - 'partially'  → "partially enforced"
+ *   - 'not'        → Enforced=False or no Enforced condition
+ */
+export type EnforcementState = 'fully' | 'partially' | 'not';
+
+export function getEnforcementState(conditions: K8sCondition[] | undefined): EnforcementState {
+  const c = findCondition(conditions, 'Enforced');
+  if (!c || c.status !== 'True') return 'not';
+  if ((c.message || '').toLowerCase().includes('partial')) return 'partially';
+  return 'fully';
+}
+
 export function severityToLabelColor(
   severity: StatusSeverity,
 ): 'green' | 'orange' | 'red' | 'blue' | 'grey' {

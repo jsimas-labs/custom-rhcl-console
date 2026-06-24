@@ -2,7 +2,7 @@ import * as React from 'react';
 // SDK 4.21 federates react-router 5.3; in v5 `Link` lives only in
 // `react-router-dom`. Keep this until we move back to SDK 4.22+.
 import { Link } from 'react-router-dom';
-import { PageSection, Title, Spinner, Bullseye, Label } from '@patternfly/react-core';
+import { PageSection, Title, Spinner, Bullseye, Label, Tooltip } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import { useTranslation } from 'react-i18next';
@@ -25,7 +25,7 @@ import {
   PolicyKind,
   PolicyTargetReference,
 } from '../../types';
-import { getWorstConditionSeverity, isConditionTrue } from '../../utils/status';
+import { getWorstConditionSeverity, isConditionTrue, getEnforcementState } from '../../utils/status';
 import { primaryTargetRef } from '../../utils/policyTargets';
 import StatusLabel from '../common/StatusLabel';
 import FilterToolbar from '../common/FilterToolbar';
@@ -229,11 +229,31 @@ const PolicyListPage: React.FC = () => {
                   <Td>
                     {overridden ? (
                       <Label color="orange">{t('Overridden')}</Label>
-                    ) : isConditionTrue(conditions, 'Enforced') ? (
-                      <Label color="green">{t('Enforced')}</Label>
-                    ) : (
-                      <Label color="grey">{t('Accepted')}</Label>
-                    )}
+                    ) : (() => {
+                      const enf = getEnforcementState(conditions);
+                      if (enf === 'fully') {
+                        return <Label color="green">{t('Enforced')}</Label>;
+                      }
+                      if (enf === 'partially') {
+                        return (
+                          <Tooltip
+                            content={
+                              row.targetRef.kind === 'Gateway'
+                                ? t(
+                                    'Applies only to routes attached to {{target}} that do not declare their own policy of this kind. Routes with a more-specific policy override the gateway default (Gateway API GEP-713 defaults semantics).',
+                                    { target: row.targetRef.name },
+                                  )
+                                : t(
+                                    'Some of the attached resources already have a more-specific policy that overrides this one.',
+                                  )
+                            }
+                          >
+                            <Label color="blue">{t('Partial')}</Label>
+                          </Tooltip>
+                        );
+                      }
+                      return <Label color="grey">{t('Accepted')}</Label>;
+                    })()}
                   </Td>
                 </Tr>
               );
