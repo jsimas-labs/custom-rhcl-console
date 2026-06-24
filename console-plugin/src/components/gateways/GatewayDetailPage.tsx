@@ -102,12 +102,19 @@ const GatewayDetailPage: React.FC = () => {
           </Title>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {/* Istio's `source_workload` label is `<gateway-name>-<class-name>`
-                (e.g. `rhcl-apps-gateway-openshift-default`). A `<name>-.*` regex
-                covers every gateway-class workload backing this Gateway CR. */}
+                — for our default install that's e.g.
+                `rhcl-apps-gateway-openshift-default`. Use the GatewayClass
+                from the CR spec when available so the link lands on a
+                concrete dropdown entry; fall back to a regex so a Gateway
+                whose class field is empty still produces a working query. */}
             <OpenInGrafanaButton
               dashboard="api-overview"
               label={t('Gateway traffic')}
-              vars={{ gateway: `${name}-.*` }}
+              vars={{
+                gateway: gateway.spec?.gatewayClassName
+                  ? `${name}-${gateway.spec.gatewayClassName}`
+                  : `${name}-.*`,
+              }}
             />
             <OpenInTempoButton
               label={t('Gateway traces')}

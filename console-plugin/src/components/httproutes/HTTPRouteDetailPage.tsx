@@ -89,12 +89,17 @@ const HTTPRouteDetailPage: React.FC = () => {
             {name} <StatusLabel conditions={parentConditions} />
           </Title>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {/* Istio reports per-rule route_name as `<ns>.<httproute>.<rule_idx>`,
-                so a `<ns>.<name>.*` regex covers every rule on this HTTPRoute. */}
+            {/* Istio's route_name label is `<ns>.<httproute>.<rule_idx>`.
+                The dashboard's `httproute` template var has regex
+                `/(.+)\.[0-9]+/` that strips the `.<idx>` suffix, so the
+                dropdown lists values shaped as `<ns>.<httproute>` — we
+                send the same shape here so the Grafana selector lands on
+                a real option. PromQL panels re-append `..+` themselves
+                to match every rule. */}
             <OpenInGrafanaButton
               dashboard="api-overview"
               label={t('Traffic')}
-              vars={{ httproute: `${ns}.${name}.*` }}
+              vars={{ httproute: `${ns}.${name}` }}
             />
             {/* Tempo Jaeger UI pre-filtered to spans that hit this route on
                 the gateway. service.name=rhcl-gateway lands you on the
