@@ -31,6 +31,7 @@ import StatusLabel from '../common/StatusLabel';
 import FilterToolbar from '../common/FilterToolbar';
 import { ratesToRpm } from './RateLimitVisualizer';
 import { RateLimit } from '../../types';
+import '../../styles/plugin-glass.css';
 
 interface PolicyRow {
   policy: AnyPolicy;
@@ -148,7 +149,7 @@ const PolicyListPage: React.FC = () => {
   }
 
   return (
-    <>
+    <div className="rhcl-plugin-root">
       <PageSection variant="default">
         <Title headingLevel="h1">{t('Policies')}</Title>
       </PageSection>
@@ -195,15 +196,12 @@ const PolicyListPage: React.FC = () => {
                   ? `/connectivity-link/gateways/${row.targetRef.namespace || ns}/${row.targetRef.name}`
                   : `/connectivity-link/httproutes/${row.targetRef.namespace || ns}/${row.targetRef.name}`;
 
-              // RateLimitPolicy gets a plugin-owned detail page that
-              // visualises the actual limits. Other policy kinds still
-              // link to the native CR YAML page until they get their own.
-              const nameCell =
-                row.policyKind === 'RateLimitPolicy' ? (
-                  <Link to={`/connectivity-link/policies/ratelimit/${ns}/${name}`}>{name}</Link>
-                ) : (
-                  <a href={policyResourceURL(row.policyKind, ns, name)}>{name}</a>
-                );
+              // Every Kuadrant policy kind now ships its own operational
+              // detail page — policyResourceURL routes to the plugin
+              // for known kinds and to the native CR YAML page only as a
+              // last resort (e.g. a runtime-discovered policy CRD that
+              // doesn't have a dedicated renderer yet).
+              const nameCell = <Link to={policyResourceURL(row.policyKind, ns, name)}>{name}</Link>;
 
               const { scope, limit } = describePolicyRow(row);
 
@@ -261,7 +259,7 @@ const PolicyListPage: React.FC = () => {
           </Tbody>
         </Table>
       </PageSection>
-    </>
+    </div>
   );
 };
 

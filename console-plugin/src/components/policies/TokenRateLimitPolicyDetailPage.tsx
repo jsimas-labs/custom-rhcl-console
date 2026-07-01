@@ -1,7 +1,4 @@
 import * as React from 'react';
-// SDK 4.21 wraps plugin pages in <CompatRouter> which populates the v6
-// router context. v5's `useParams` reads the v5 context and returns {}.
-// Use the v5-compat shim (which reads v6) for params.
 import { useParams } from 'react-router-dom-v5-compat';
 import {
   Bullseye,
@@ -17,8 +14,8 @@ import {
 } from '@patternfly/react-core';
 import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import { useTranslation } from 'react-i18next';
-import { RateLimitPolicyGVK } from '../../models';
-import { RateLimitPolicy, RateLimit } from '../../types';
+import { TokenRateLimitPolicyGVK } from '../../models';
+import { TokenRateLimitPolicy } from '../../types';
 import { primaryTargetRef } from '../../utils/policyTargets';
 import { PolicyLayout } from './shared/PolicyLayout';
 import { PolicyHeader } from './shared/PolicyHeader';
@@ -32,18 +29,33 @@ import { PolicyConfigurationCard } from './shared/PolicyConfigurationCard';
 import { PolicyMetricsCard } from './shared/PolicyMetricsCard';
 import { summarizePolicyStatus } from './shared/state';
 import { useRateLimitMetrics } from '../../hooks/policies/useRateLimitMetrics';
-import RateLimitVisualizer from './RateLimitVisualizer';
 import '../../styles/plugin-glass.css';
 
-/**
- * Operational view for a RateLimitPolicy.
- *
- * Replaces the previous `kubectl describe`-style page with the shared
- * policy operational layout (header → summary/status/configuration/
- * metrics on the left, target/affected/troubleshooting/events on the
- * right). The rate-limit-specific bits are the limits visualizer and
- * the per-policy PromQL aggregates (allowed/rejected/top consumers).
- */
+interface TokenBucketRow {
+  name: string;
+  size?: number;
+  refill?: { rate?: number; period?: string };
+  scope?: string;
+  when?: string;
+}
+
+function collectBuckets(policy: TokenRateLimitPolicy): TokenBucketRow[] {
+  const spec = policy.spec as unknown as {
+    limits?: Record<string, { rates?: { limit: number; window: string }[]; counters?: string[]; when?: Array<{ predicate?: string }> }>;
+  };
+  const limits = spec.limits || {};
+  return Object.entries(limits).map(([name, val]) => {
+    const rate = val.rates?.[0];
+    return {
+      name,
+      size: rate?.limit,
+      refill: rate ? { rate: rate.limit, period: rate.window } : undefined,
+      scope: val.counters?.[0] || 'global',
+      when: val.when?.[0]?.predicate,
+    };
+  });
+}
+
 const MetricStat: React.FC<{ label: string; value: string; tone?: 'good' | 'bad' | 'warn' | 'neutral' }> = ({
   label,
   value,
@@ -74,21 +86,12 @@ const MetricStat: React.FC<{ label: string; value: string; tone?: 'good' | 'bad'
   );
 };
 
-function collectLimits(policy: RateLimitPolicy): Record<string, RateLimit> {
-  const spec = policy.spec as unknown as {
-    limits?: Record<string, RateLimit>;
-    defaults?: { limits?: Record<string, RateLimit> };
-    overrides?: { limits?: Record<string, RateLimit> };
-  };
-  return spec.limits || spec.defaults?.limits || spec.overrides?.limits || {};
-}
-
-const RateLimitPolicyDetailPage: React.FC = () => {
+const TokenRateLimitPolicyDetailPage: React.FC = () => {
   const { ns, name } = useParams<{ ns: string; name: string }>();
   const { t } = useTranslation('plugin__custom-rhcl-console');
 
-  const [policies, loaded] = useK8sWatchResource<RateLimitPolicy[]>({
-    groupVersionKind: RateLimitPolicyGVK,
+  const [policies, loaded] = useK8sWatchResource<TokenRateLimitPolicy[]>({
+    groupVersionKind: TokenRateLimitPolicyGVK,
     isList: true,
   });
   const policy = (policies || []).find(
@@ -100,26 +103,24 @@ const RateLimitPolicyDetailPage: React.FC = () => {
   if (!loaded) return <Bullseye><Spinner /></Bullseye>;
   if (!policy) {
     return (
-      <EmptyState headingLevel="h2" titleText={t('RateLimitPolicy not found')}>
-        <EmptyStateBody>
-          {t('No RateLimitPolicy named {{name}} in namespace {{ns}}.', { name, ns })}
-        </EmptyStateBody>
+      <EmptyState headingLevel="h2" titleText={t('TokenRateLimitPolicy not found')}>
+        <EmptyStateBody>{t('No TokenRateLimitPolicy named {{name}} in namespace {{ns}}.', { name, ns })}</EmptyStateBody>
       </EmptyState>
     );
   }
 
   const summary = summarizePolicyStatus(policy);
   const ref = primaryTargetRef(policy);
-  const limits = collectLimits(policy);
-  const yamlHref = `/k8s/ns/${ns}/kuadrant.io~v1~RateLimitPolicy/${name}/yaml`;
+  const buckets = collectBuckets(policy);
+  const yamlHref = `/k8s/ns/${ns}/kuadrant.io~v1alpha1~TokenRateLimitPolicy/${name}/yaml`;
 
   return (
     <PolicyLayout
       header={
         <PolicyHeader
           policyName={name || ''}
-          policyKind="RateLimitPolicy"
-          kindLabel={t('Rate Limit')}
+          policyKind="TokenRateLimitPolicy"
+          kindLabel={t('Token Rate Limit')}
           namespace={ns || ''}
           summary={summary}
           targetRef={ref}
@@ -130,18 +131,57 @@ const RateLimitPolicyDetailPage: React.FC = () => {
         <>
           <PolicySummaryCard
             policy={policy}
-            description={t('Rate-limit configuration for the target.')}
+            description={t('Token-bucket rate limit shared across consumers.')}
             targetRef={ref}
             scope={ref?.kind === 'Gateway' ? t('Per gateway') : t('Per route')}
           />
           <PolicyStatusCard summary={summary} />
-          <PolicyConfigurationCard title={t('Rate-limit Plans')}>
-            {Object.keys(limits).length === 0 ? (
+          <PolicyConfigurationCard title={t('Token Buckets')}>
+            {buckets.length === 0 ? (
               <span style={{ color: 'var(--pf-v5-global--Color--200)' }}>
-                {t('No limits declared.')}
+                {t('No buckets declared.')}
               </span>
             ) : (
-              <RateLimitVisualizer limits={limits} />
+              <Grid hasGutter>
+                {buckets.map((b) => (
+                  <GridItem key={b.name} span={12}>
+                    <div
+                      style={{
+                        padding: 12,
+                        borderRadius: 6,
+                        backgroundColor: 'var(--pf-v5-global--BackgroundColor--200)',
+                        border: '1px solid var(--pf-v5-global--BorderColor--100)',
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, marginBottom: 8 }}>{b.name}</div>
+                      <DescriptionList isHorizontal isCompact columnModifier={{ default: '2Col' }}>
+                        <DescriptionListGroup>
+                          <DescriptionListTerm>{t('Bucket size')}</DescriptionListTerm>
+                          <DescriptionListDescription>{b.size ?? '—'}</DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                          <DescriptionListTerm>{t('Refill rate')}</DescriptionListTerm>
+                          <DescriptionListDescription>
+                            {b.refill?.rate ?? '—'} / {b.refill?.period ?? '—'}
+                          </DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                          <DescriptionListTerm>{t('Scope')}</DescriptionListTerm>
+                          <DescriptionListDescription>{b.scope || 'global'}</DescriptionListDescription>
+                        </DescriptionListGroup>
+                        {b.when && (
+                          <DescriptionListGroup>
+                            <DescriptionListTerm>{t('Applies when')}</DescriptionListTerm>
+                            <DescriptionListDescription>
+                              <code>{b.when}</code>
+                            </DescriptionListDescription>
+                          </DescriptionListGroup>
+                        )}
+                      </DescriptionList>
+                    </div>
+                  </GridItem>
+                ))}
+              </Grid>
             )}
           </PolicyConfigurationCard>
           <PolicyMetricsCard loaded={metricsLoaded} metricsAvailable={metricsAvailable}>
@@ -157,20 +197,6 @@ const RateLimitPolicyDetailPage: React.FC = () => {
               </GridItem>
               <GridItem span={3}>
                 <MetricStat label={t('Rejection %')} value={`${metrics.rejectionPct}%`} tone="warn" />
-              </GridItem>
-              <GridItem span={12}>
-                <DescriptionList isHorizontal isCompact>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>{t('Top consumers')}</DescriptionListTerm>
-                    <DescriptionListDescription>
-                      {metrics.topConsumers.length === 0
-                        ? '—'
-                        : metrics.topConsumers
-                            .map((c) => `${c.consumerId} (${c.perMin}/min)`)
-                            .join(', ')}
-                    </DescriptionListDescription>
-                  </DescriptionListGroup>
-                </DescriptionList>
               </GridItem>
             </Grid>
           </PolicyMetricsCard>
@@ -188,4 +214,4 @@ const RateLimitPolicyDetailPage: React.FC = () => {
   );
 };
 
-export default RateLimitPolicyDetailPage;
+export default TokenRateLimitPolicyDetailPage;
