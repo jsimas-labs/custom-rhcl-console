@@ -13,7 +13,7 @@ import {
   policyResourceURL,
 } from '../models';
 import { primaryTargetRef } from '../utils/policyTargets';
-import { PolicyImpactRow } from '../components/overview/types';
+import { PolicyImpact, PolicyImpactRow } from '../components/overview/types';
 
 interface StatusCondition {
   type: string;
@@ -41,13 +41,18 @@ interface UsePolicyImpactRowsResult {
 
 /**
  * Watches the 5 known policy kinds, projects each into a `PolicyImpactRow`
- * for the Overview "Policies" table. `impact` is a short human-readable
- * sentence that depends on the status:
+ * for the Overview "Policies" table. `impact` is a discriminated union so
+ * the renderer can pick the right i18n key and interpolate cluster-derived
+ * values (target kind + name) safely — an earlier version returned
+ * pre-formatted English strings like "Targeting HTTPRoute/banking-api" and
+ * i18next then looked those exact runtime strings up as keys, spamming
+ * "missing i18n key" for every distinct target.
  *
- *   - enforced  → "Targeting <kind>/<name>"
- *   - accepted  → "Accepted, no enforcement"  (waiting / no target traffic)
- *   - overridden → "Overridden by route policy"
- *   - failed    → "Not accepted"
+ *   - `{ kind: 'targeting', targetKind, targetName }` — enforced with a target
+ *   - `{ kind: 'accepted' }`                          — accepted, not enforced
+ *   - `{ kind: 'overridden' }`                        — overridden by a route policy
+ *   - `{ kind: 'not-accepted' }`                      — failed
+ *   - `{ kind: 'no-target' }`                         — no targetRef on the policy
  *
  * Sort is critical → warning → healthy so the row that needs eyeballs is at
  * the top (matches the Needs Attention ordering).
@@ -92,24 +97,17 @@ export function usePolicyImpactRows(): UsePolicyImpactRowsResult {
       const name = p.metadata?.name || '';
       const status = policyStatus(p);
       const ref = primaryTargetRef(p);
-      let impact = '';
-      if (ref) {
-        switch (status) {
-          case 'enforced':
-            impact = `Targeting ${ref.kind}/${ref.name}`;
-            break;
-          case 'accepted':
-            impact = 'Accepted, no enforcement';
-            break;
-          case 'overridden':
-            impact = 'Overridden by route policy';
-            break;
-          case 'failed':
-          default:
-            impact = 'Not accepted';
-        }
+      let impact: PolicyImpact;
+      if (!ref) {
+        impact = { kind: 'no-target' };
+      } else if (status === 'enforced') {
+        impact = { kind: 'targeting', targetKind: ref.kind, targetName: ref.name };
+      } else if (status === 'accepted') {
+        impact = { kind: 'accepted' };
+      } else if (status === 'overridden') {
+        impact = { kind: 'overridden' };
       } else {
-        impact = 'No target attached';
+        impact = { kind: 'not-accepted' };
       }
 
       return {

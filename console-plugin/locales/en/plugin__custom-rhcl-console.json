@@ -1,4 +1,5 @@
 {
+  "(Compared to 1h ago)": "(Compared to 1h ago)",
   "(Last 24h)": "(Last 24h)",
   "1m rate": "1m rate",
   "429s last 24h": "429s last 24h",
@@ -17,6 +18,7 @@
     }
   },
   "Accepted": "Accepted",
+  "Accepted, no enforcement": "Accepted, no enforcement",
   "Accepted paths": "Accepted paths",
   "Actions": "Actions",
   "Address": "Address",
@@ -100,6 +102,7 @@
   "Defaults": "Defaults",
   "Degraded": "Degraded",
   "Deprecated": "Deprecated",
+  "Detected": "Detected",
   "Details": "Details",
   "Developer Portal": "Developer Portal",
   "Developer Portal not configured": "Developer Portal not configured",
@@ -238,6 +241,7 @@
   "No {{resource}} found": "No {{resource}} found",
   "Not Accepted": "Not Accepted",
   "Not Enforced": "Not Enforced",
+  "Not accepted": "Not accepted",
   "Not attached": "Not attached",
   "Not ready": "Not ready",
   "Numbers come from cluster Prometheus via istio_requests_total scoped to (route, backend)": {
@@ -253,6 +257,7 @@
   "Optional header (api-key, Authorization, …)": "Optional header (api-key, Authorization, …)",
   "Overridden": "Overridden",
   "Overridden by route": "Overridden by route",
+  "Overridden by route policy": "Overridden by route policy",
   "Override": "Override",
   "Overrides": "Overrides",
   "Overshadowed by route-level policy ({{n}})": "Overshadowed by route-level policy ({{n}})",
@@ -370,6 +375,7 @@
   "Success": "Success",
   "Success Rate": "Success Rate",
   "Success rate": "Success rate",
+  "TLS": "TLS",
   "TLS Configuration": "TLS Configuration",
   "TLS configuration for the target gateway.": "TLS configuration for the target gateway.",
   "TLS health": "TLS health",
@@ -377,6 +383,7 @@
   "Tags": "Tags",
   "Target": "Target",
   "Target Resource": "Target Resource",
+  "Targeting {{kind}}/{{name}}": "Targeting {{kind}}/{{name}}",
   "Tempo is not installed on this cluster. Run the observability role (or playbooks/observability-install.yml) to enable.": "Tempo is not installed on this cluster. Run the observability role (or playbooks/observability-install.yml) to enable.",
   "The Service for this backend could not be loaded from the cluster": "The Service for this backend could not be loaded from the cluster",
   "The controller has not yet reported any condition transitions for this policy.": "The controller has not yet reported any condition transitions for this policy.",

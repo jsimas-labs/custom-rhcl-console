@@ -11,7 +11,32 @@ import {
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { PolicyImpactRow } from './types';
+import { PolicyImpact, PolicyImpactRow } from './types';
+
+// Turns the discriminated PolicyImpact into the label rendered in the
+// "Impact" column, using i18n templates so cluster-derived strings
+// (target kind/name) go through {{placeholders}} instead of being
+// looked up as literal keys — see the hook's docstring for context.
+function useImpactLabel(): (impact: PolicyImpact) => string {
+  const { t } = useTranslation('plugin__custom-rhcl-console');
+  return (impact) => {
+    switch (impact.kind) {
+      case 'targeting':
+        return t('Targeting {{kind}}/{{name}}', {
+          kind: impact.targetKind,
+          name: impact.targetName,
+        });
+      case 'accepted':
+        return t('Accepted, no enforcement');
+      case 'overridden':
+        return t('Overridden by route policy');
+      case 'not-accepted':
+        return t('Not accepted');
+      case 'no-target':
+        return t('No target attached');
+    }
+  };
+}
 
 interface Props {
   rows: PolicyImpactRow[];
@@ -31,6 +56,7 @@ const STATUS_COLOR: Record<PolicyImpactRow['status'], 'green' | 'blue' | 'purple
  */
 export const PolicyImpactTable: React.FC<Props> = ({ rows }) => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
+  const impactLabel = useImpactLabel();
   const statusLabel: Record<PolicyImpactRow['status'], string> = {
     enforced: t('Enforced'),
     accepted: t('Accepted'),
@@ -86,7 +112,7 @@ export const PolicyImpactTable: React.FC<Props> = ({ rows }) => {
                 </Td>
                 <Td>
                   <span style={{ color: 'var(--pf-v5-global--Color--200)', fontSize: 13 }}>
-                    {t(r.impact)}
+                    {impactLabel(r.impact)}
                   </span>
                 </Td>
               </Tr>

@@ -60,6 +60,21 @@ export interface GatewayOpData {
   href: string;
 }
 
+/**
+ * Discriminated union describing WHY a row shows up with a given status.
+ * The renderer picks the right i18n key per shape — this lets the hook
+ * carry structured data (target kind/name from the cluster) without
+ * pre-interpolating strings that i18next would then see as unknown
+ * keys ("Targeting HTTPRoute/banking-api-connectivity" was the
+ * observed missing-key spam on customer clusters).
+ */
+export type PolicyImpact =
+  | { kind: 'targeting'; targetKind: string; targetName: string }
+  | { kind: 'accepted' }
+  | { kind: 'overridden' }
+  | { kind: 'not-accepted' }
+  | { kind: 'no-target' };
+
 export interface PolicyImpactRow {
   id: string;
   name: string;
@@ -67,7 +82,7 @@ export interface PolicyImpactRow {
   kind: string;
   typeLabel: string;
   status: 'enforced' | 'accepted' | 'overridden' | 'failed';
-  impact: string;
+  impact: PolicyImpact;
   href: string;
 }
 
