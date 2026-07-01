@@ -142,9 +142,7 @@
   "Gateways": "Gateways",
   "Generate traffic with tests/simulate-api-traffic.sh and wait ~60s for the first poll.": "Generate traffic with tests/simulate-api-traffic.sh and wait ~60s for the first poll.",
   "Go to Developer Portal": "Go to Developer Portal",
-  "Grafana is not installed on this cluster": {
-    " Apply tests/req041/manifests/ to enable": ""
-  },
+  "Grafana is not installed on this cluster. Apply tests/req041/manifests/ to enable.": "Grafana is not installed on this cluster. Apply tests/req041/manifests/ to enable.",
   "HTTPRoute": "HTTPRoute",
   "HTTPRoute traffic": "HTTPRoute traffic",
   "HTTPRoutes": "HTTPRoutes",
@@ -248,6 +246,7 @@
   "Open HTTPRoute →": "Open HTTPRoute →",
   "Open all {{title}}": "Open all {{title}}",
   "Open in Grafana": "Open in Grafana",
+  "Open in Grafana: {{label}}": "Open in Grafana: {{label}}",
   "Open the Developer Portal": "Open the Developer Portal",
   "Opening the Developer Portal…": "Opening the Developer Portal…",
   "Operational Status": "Operational Status",
