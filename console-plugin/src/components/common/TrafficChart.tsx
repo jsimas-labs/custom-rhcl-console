@@ -11,6 +11,7 @@ import {
 import { Card, CardTitle, CardBody, Spinner } from '@patternfly/react-core';
 import { useTranslation } from 'react-i18next';
 import { usePrometheusRange, TimeSeries } from '../../hooks/usePrometheusRange';
+import { useResponsiveChartWidth } from '../../hooks/useResponsiveChartWidth';
 import {
   statusCodeRateRangeQuery,
   latencyPercentileRangeQuery,
@@ -43,6 +44,7 @@ function formatTime(input: Date | number | string): string {
 
 const RequestRateChart: React.FC<{ series: TimeSeries[] }> = ({ series }) => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
+  const [containerRef, chartWidth] = useResponsiveChartWidth();
   const legendData = [
     { name: '2xx', symbol: { fill: REQUEST_COLORS[0] } },
     { name: '4xx', symbol: { fill: REQUEST_COLORS[1] } },
@@ -60,7 +62,9 @@ const RequestRateChart: React.FC<{ series: TimeSeries[] }> = ({ series }) => {
             {t('No data available')}
           </div>
         ) : (
+          <div ref={containerRef} style={{ width: '100%' }}>
           <Chart
+            width={chartWidth}
             height={200}
             padding={{ top: 10, bottom: 40, left: 60, right: 20 }}
             // Pin X axis to time scale so Victory doesn't fall back to
@@ -94,6 +98,7 @@ const RequestRateChart: React.FC<{ series: TimeSeries[] }> = ({ series }) => {
               ))}
             </ChartGroup>
           </Chart>
+          </div>
         )}
       </CardBody>
     </Card>
@@ -102,6 +107,7 @@ const RequestRateChart: React.FC<{ series: TimeSeries[] }> = ({ series }) => {
 
 const LatencyChart: React.FC<{ series: TimeSeries[] }> = ({ series }) => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
+  const [containerRef, chartWidth] = useResponsiveChartWidth();
   const legendData = [
     { name: 'p50', symbol: { fill: LATENCY_COLORS[0] } },
     { name: 'p95', symbol: { fill: LATENCY_COLORS[1] } },
@@ -119,7 +125,9 @@ const LatencyChart: React.FC<{ series: TimeSeries[] }> = ({ series }) => {
             {t('No data available')}
           </div>
         ) : (
+          <div ref={containerRef} style={{ width: '100%' }}>
           <Chart
+            width={chartWidth}
             height={200}
             padding={{ top: 10, bottom: 40, left: 60, right: 20 }}
             scale={{ x: 'time' }}
@@ -150,6 +158,7 @@ const LatencyChart: React.FC<{ series: TimeSeries[] }> = ({ series }) => {
               ))}
             </ChartGroup>
           </Chart>
+          </div>
         )}
       </CardBody>
     </Card>
@@ -198,6 +207,7 @@ export const TrafficCharts: React.FC<TrafficChartProps> = ({ kind, name, namespa
 };
 
 export const TrafficSparkline: React.FC<TrafficChartProps> = ({ kind, name, namespace }) => {
+  const [containerRef, chartWidth] = useResponsiveChartWidth(300);
   const queries = React.useMemo(
     () => [{ label: 'req/s', query: trafficOverTimeQuery(namespace, name, kind) }],
     [namespace, name, kind],
@@ -223,8 +233,9 @@ export const TrafficSparkline: React.FC<TrafficChartProps> = ({ kind, name, name
     grid: { stroke: 'transparent' },
   };
   return (
-    <div style={{ height: 40, marginTop: 8 }}>
+    <div ref={containerRef} style={{ height: 40, marginTop: 8, width: '100%' }}>
       <Chart
+        width={chartWidth}
         height={40}
         padding={{ top: 2, bottom: 2, left: 2, right: 2 }}
         scale={{ x: 'time' }}

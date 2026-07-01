@@ -17,6 +17,7 @@ import { APIProductGVK } from '../../models';
 import { APIProduct } from '../../types';
 import EmptyRBACState from '../common/EmptyRBACState';
 import FilterToolbar from '../common/FilterToolbar';
+import '../../styles/plugin-glass.css';
 
 const APIProductListPage: React.FC = () => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
@@ -86,7 +87,7 @@ const APIProductListPage: React.FC = () => {
   }
 
   return (
-    <>
+    <div className="rhcl-plugin-root">
       <PageSection variant="default">
         <Title headingLevel="h1">{t('API Products')}</Title>
       </PageSection>
@@ -145,7 +146,7 @@ const APIProductListPage: React.FC = () => {
           </Tbody>
         </Table>
       </PageSection>
-    </>
+    </div>
   );
 };
 

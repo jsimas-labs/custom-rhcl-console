@@ -13,6 +13,7 @@ import StatusLabel from '../common/StatusLabel';
 import HostnameCell from '../common/HostnameCell';
 import EmptyRBACState from '../common/EmptyRBACState';
 import FilterToolbar from '../common/FilterToolbar';
+import '../../styles/plugin-glass.css';
 
 const HTTPRouteListPage: React.FC = () => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
@@ -95,7 +96,7 @@ const HTTPRouteListPage: React.FC = () => {
   }
 
   return (
-    <>
+    <div className="rhcl-plugin-root">
       <PageSection variant="default">
         <Title headingLevel="h1">{t('HTTPRoutes')}</Title>
       </PageSection>
@@ -158,7 +159,7 @@ const HTTPRouteListPage: React.FC = () => {
           </Tbody>
         </Table>
       </PageSection>
-    </>
+    </div>
   );
 };
 

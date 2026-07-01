@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { PlanPolicyGVK, APIKeyGVK } from '../../models';
 import { PlanPolicy, APIKey } from '../../types';
 import StatusLabel from '../common/StatusLabel';
+import '../../styles/plugin-glass.css';
 
 /**
  * Cluster-wide PlanPolicy browser. Each PlanPolicy declares the tiers
@@ -91,7 +92,7 @@ const PlansListPage: React.FC = () => {
   }
 
   return (
-    <>
+    <div className="rhcl-plugin-root">
       <PageSection variant="default">
         <Title headingLevel="h1">{t('Plans')}</Title>
         <p style={{ marginTop: 4, color: 'var(--pf-t--global--color--nonstatus--gray--default)' }}>
@@ -200,7 +201,7 @@ const PlansListPage: React.FC = () => {
           </CardBody>
         </Card>
       </PageSection>
-    </>
+    </div>
   );
 };
 

@@ -1,63 +1,88 @@
 import * as React from 'react';
 // SDK 4.21 wraps plugin pages in <CompatRouter> which populates the v6
 // router context. v5's `useParams` reads the v5 context and returns {}.
-// Use the v5-compat shim (which reads v6) for params; keep <Link> from
-// react-router-dom (v5) since it just renders an anchor.
+// Use the v5-compat shim (which reads v6) for params.
 import { useParams } from 'react-router-dom-v5-compat';
-import { Link } from 'react-router-dom';
 import {
-  PageSection,
-  Title,
-  Breadcrumb,
-  BreadcrumbItem,
-  Spinner,
   Bullseye,
+  Spinner,
+  EmptyState,
+  EmptyStateBody,
   Grid,
   GridItem,
-  Card,
-  CardTitle,
-  CardBody,
   DescriptionList,
   DescriptionListGroup,
   DescriptionListTerm,
   DescriptionListDescription,
-  EmptyState,
-  EmptyStateBody,
-  Label,
 } from '@patternfly/react-core';
 import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import { useTranslation } from 'react-i18next';
-import {
-  RateLimitPolicyGVK,
-  APIProductGVK,
-} from '../../models';
-import {
-  RateLimitPolicy,
-  APIProduct,
-  RateLimit,
-} from '../../types';
+import { RateLimitPolicyGVK } from '../../models';
+import { RateLimitPolicy, RateLimit } from '../../types';
 import { primaryTargetRef } from '../../utils/policyTargets';
-import StatusLabel from '../common/StatusLabel';
-import { OpenInGrafanaButton } from '../common/OpenInGrafanaButton';
-import TopConsumers from '../api-products/TopConsumers';
+import { PolicyLayout } from './shared/PolicyLayout';
+import { PolicyHeader } from './shared/PolicyHeader';
+import { PolicySummaryCard } from './shared/PolicySummaryCard';
+import { PolicyStatusCard } from './shared/PolicyStatusCard';
+import { PolicyTargetCard } from './shared/PolicyTargetCard';
+import { AffectedResourcesCard } from './shared/AffectedResourcesCard';
+import { PolicyTroubleshootingCard } from './shared/PolicyTroubleshootingCard';
+import { PolicyEventsCard } from './shared/PolicyEventsCard';
+import { PolicyConfigurationCard } from './shared/PolicyConfigurationCard';
+import { PolicyMetricsCard } from './shared/PolicyMetricsCard';
+import { summarizePolicyStatus } from './shared/state';
+import { useRateLimitMetrics } from '../../hooks/policies/useRateLimitMetrics';
 import RateLimitVisualizer from './RateLimitVisualizer';
-import RateLimitOperationalMetrics from './RateLimitOperationalMetrics';
-import RateLimitTrendChart from './RateLimitTrendChart';
+import '../../styles/plugin-glass.css';
 
 /**
- * Plugin-owned detail view for a RateLimitPolicy.
+ * Operational view for a RateLimitPolicy.
  *
- * The native console takes the user to the CR YAML — useful for editing,
- * but useless for "how is this policy actually limiting traffic right
- * now?". This page focuses on that question:
- *
- *   1. Target — which Gateway/HTTPRoute is being protected, and at what
- *      semantic level (defaults vs overrides).
- *   2. Limits — the actual rates, windows and predicates, visualised by
- *      RateLimitVisualizer.
- *   3. Used by — which APIProducts derive their plan info from this RLP
- *      (best-effort reverse lookup via APIProduct status).
+ * Replaces the previous `kubectl describe`-style page with the shared
+ * policy operational layout (header → summary/status/configuration/
+ * metrics on the left, target/affected/troubleshooting/events on the
+ * right). The rate-limit-specific bits are the limits visualizer and
+ * the per-policy PromQL aggregates (allowed/rejected/top consumers).
  */
+const MetricStat: React.FC<{ label: string; value: string; tone?: 'good' | 'bad' | 'warn' | 'neutral' }> = ({
+  label,
+  value,
+  tone = 'neutral',
+}) => {
+  const color =
+    tone === 'good'
+      ? 'var(--pf-v5-global--success-color--100)'
+      : tone === 'bad'
+      ? 'var(--pf-v5-global--danger-color--100)'
+      : tone === 'warn'
+      ? 'var(--pf-v5-global--warning-color--100)'
+      : 'var(--pf-v5-global--Color--100)';
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          color: 'var(--pf-v5-global--Color--200)',
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ fontSize: 24, fontWeight: 700, color }}>{value}</div>
+    </div>
+  );
+};
+
+function collectLimits(policy: RateLimitPolicy): Record<string, RateLimit> {
+  const spec = policy.spec as unknown as {
+    limits?: Record<string, RateLimit>;
+    defaults?: { limits?: Record<string, RateLimit> };
+    overrides?: { limits?: Record<string, RateLimit> };
+  };
+  return spec.limits || spec.defaults?.limits || spec.overrides?.limits || {};
+}
+
 const RateLimitPolicyDetailPage: React.FC = () => {
   const { ns, name } = useParams<{ ns: string; name: string }>();
   const { t } = useTranslation('plugin__custom-rhcl-console');
@@ -70,344 +95,97 @@ const RateLimitPolicyDetailPage: React.FC = () => {
     (p) => p.metadata?.name === name && p.metadata?.namespace === ns,
   );
 
-  const [apiProducts] = useK8sWatchResource<APIProduct[]>({
-    groupVersionKind: APIProductGVK,
-    isList: true,
-  });
+  const { metrics, loaded: metricsLoaded, metricsAvailable } = useRateLimitMetrics(policy);
 
-  if (!loaded) {
-    return (
-      <PageSection isFilled>
-        <Bullseye><Spinner size="xl" /></Bullseye>
-      </PageSection>
-    );
-  }
-
+  if (!loaded) return <Bullseye><Spinner /></Bullseye>;
   if (!policy) {
     return (
-      <PageSection>
-        <EmptyState variant="sm" titleText={t('RateLimitPolicy not found')} headingLevel="h2">
-          <EmptyStateBody>
-            {t('{{ns}}/{{name}} could not be located.', { ns, name })}
-          </EmptyStateBody>
-        </EmptyState>
-      </PageSection>
+      <EmptyState headingLevel="h2" titleText={t('RateLimitPolicy not found')}>
+        <EmptyStateBody>
+          {t('No RateLimitPolicy named {{name}} in namespace {{ns}}.', { name, ns })}
+        </EmptyStateBody>
+      </EmptyState>
     );
   }
 
-  // Spec may put limits at the top level, or under defaults/overrides — when
-  // composing with another RLP on the same chain. Surface each chunk it has.
-  const topLimits = policy.spec?.limits || {};
-  const defaultsLimits = policy.spec?.defaults?.limits || {};
-  const overridesLimits = policy.spec?.overrides?.limits || {};
-  const totalLimits =
-    Object.keys(topLimits).length +
-    Object.keys(defaultsLimits).length +
-    Object.keys(overridesLimits).length;
-
-  const targetRef = primaryTargetRef(policy);
-  const targetNs = targetRef?.namespace || ns || '';
-  const targetPath = targetRef
-    ? targetRef.kind === 'Gateway'
-      ? `/connectivity-link/gateways/${targetNs}/${targetRef.name}`
-      : `/connectivity-link/httproutes/${targetNs}/${targetRef.name}`
-    : '';
-
-  // Reverse lookup: APIProducts whose target is the same HTTPRoute as this
-  // RLP's target. Lets the user jump directly from the policy to the API
-  // that surfaces it to consumers.
-  const usedBy = (apiProducts || []).filter((p) => {
-    if (!targetRef || targetRef.kind !== 'HTTPRoute') return false;
-    const ap = p.spec?.targetRef;
-    return ap?.kind === 'HTTPRoute' && ap.name === targetRef.name &&
-      (ap.namespace || p.metadata?.namespace) === targetNs;
-  });
-
-  // Merged limits across the spec — used for the KPI header so the
-  // "configured" calculation considers every rate the policy attaches.
-  const mergedLimits: Record<string, RateLimit> = {
-    ...topLimits,
-    ...defaultsLimits,
-    ...overridesLimits,
-  };
-
-  // Policy Configuration block synthesises the operational summary the user
-  // wants on this page: algorithm, window (tightest), burst budget, scope,
-  // and a timeline of when it last changed. The values come straight from
-  // the spec — no extra calls.
-  const allRates = Object.values(mergedLimits).flatMap((l) => l.rates || []);
-  const tightestWindow = allRates
-    .map((r) => r.window)
-    .sort()[0] || '—';
-  const totalBudget = allRates.reduce((sum, r) => sum + (r.limit || 0), 0);
-  const scope = describeScope(policy);
+  const summary = summarizePolicyStatus(policy);
+  const ref = primaryTargetRef(policy);
+  const limits = collectLimits(policy);
+  const yamlHref = `/k8s/ns/${ns}/kuadrant.io~v1~RateLimitPolicy/${name}/yaml`;
 
   return (
-    <>
-      <PageSection variant="default">
-        <Breadcrumb>
-          <BreadcrumbItem>
-            <Link to="/connectivity-link/policies">{t('Policies')}</Link>
-          </BreadcrumbItem>
-          <BreadcrumbItem isActive>{ns}/{name}</BreadcrumbItem>
-        </Breadcrumb>
-        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <Title headingLevel="h1">
-            {name} <StatusLabel conditions={policy.status?.conditions} />
-            <Label color="blue" style={{ marginLeft: 8 }}>{t('RateLimitPolicy')}</Label>
-          </Title>
-          {/* Deep-link into the cluster's RHCL Grafana dashboard pre-filtered
-              by this policy's HTTPRoute (uses the Istio `route_name` label).
-              Hidden conceptually but visible-disabled with tooltip when
-              Grafana isn't installed — keeps the discovery path obvious. */}
-          {targetRef?.kind === 'HTTPRoute' && (
-            <OpenInGrafanaButton
-              dashboard="api-overview"
-              label={t('API metrics')}
-              vars={{ httproute: `${targetNs}.${targetRef.name}.*` }}
-            />
-          )}
-        </div>
-      </PageSection>
-
-      <PageSection>
-        <Grid hasGutter>
-          {/* Operational KPI strip — answers "is this limit doing anything
-              right now?" before the user even scrolls. */}
-          {targetRef && (
-            <GridItem span={12}>
-              <RateLimitOperationalMetrics
-                targetKind={targetRef.kind === 'Gateway' ? 'Gateway' : 'HTTPRoute'}
-                targetName={targetRef.name}
-                targetNamespace={targetNs}
-                limits={mergedLimits}
-              />
-            </GridItem>
-          )}
-
-          {/* Usage trend — allowed vs rejected over the last hour. */}
-          {targetRef && (
-            <GridItem span={12}>
-              <RateLimitTrendChart
-                targetKind={targetRef.kind === 'Gateway' ? 'Gateway' : 'HTTPRoute'}
-                targetName={targetRef.name}
-                targetNamespace={targetNs}
-              />
-            </GridItem>
-          )}
-
-          {/* Top consumers — only meaningful for HTTPRoute-scoped policies
-              because the Prometheus query joins on `route_name`. */}
-          {targetRef?.kind === 'HTTPRoute' && (
-            <GridItem md={6}>
-              <TopConsumers routeName={targetRef.name} namespace={targetNs} />
-            </GridItem>
-          )}
-
-          {/* Policy Configuration — operational summary from the spec. */}
-          <GridItem md={targetRef?.kind === 'HTTPRoute' ? 6 : 12}>
-            <Card>
-              <CardTitle>{t('Policy configuration')}</CardTitle>
-              <CardBody>
-                <DescriptionList isCompact isHorizontal>
+    <PolicyLayout
+      header={
+        <PolicyHeader
+          policyName={name || ''}
+          policyKind="RateLimitPolicy"
+          kindLabel={t('Rate Limit')}
+          namespace={ns || ''}
+          summary={summary}
+          targetRef={ref}
+          yamlHref={yamlHref}
+        />
+      }
+      mainColumn={
+        <>
+          <PolicySummaryCard
+            policy={policy}
+            description={t('Rate-limit configuration for the target.')}
+            targetRef={ref}
+            scope={ref?.kind === 'Gateway' ? t('Per gateway') : t('Per route')}
+          />
+          <PolicyStatusCard summary={summary} />
+          <PolicyConfigurationCard title={t('Rate-limit Plans')}>
+            {Object.keys(limits).length === 0 ? (
+              <span style={{ color: 'var(--pf-v5-global--Color--200)' }}>
+                {t('No limits declared.')}
+              </span>
+            ) : (
+              <RateLimitVisualizer limits={limits} />
+            )}
+          </PolicyConfigurationCard>
+          <PolicyMetricsCard loaded={metricsLoaded} metricsAvailable={metricsAvailable}>
+            <Grid hasGutter>
+              <GridItem span={3}>
+                <MetricStat label={t('Total / min')} value={metrics.totalPerMin.toString()} />
+              </GridItem>
+              <GridItem span={3}>
+                <MetricStat label={t('Allowed')} value={metrics.allowedPerMin.toString()} tone="good" />
+              </GridItem>
+              <GridItem span={3}>
+                <MetricStat label={t('Rejected (429)')} value={metrics.rejectedPerMin.toString()} tone="bad" />
+              </GridItem>
+              <GridItem span={3}>
+                <MetricStat label={t('Rejection %')} value={`${metrics.rejectionPct}%`} tone="warn" />
+              </GridItem>
+              <GridItem span={12}>
+                <DescriptionList isHorizontal isCompact>
                   <DescriptionListGroup>
-                    <DescriptionListTerm>{t('Algorithm')}</DescriptionListTerm>
+                    <DescriptionListTerm>{t('Top consumers')}</DescriptionListTerm>
                     <DescriptionListDescription>
-                      {t('Token bucket')}{' '}
-                      <span style={{ color: 'var(--pf-v5-global--Color--300)', fontSize: 12 }}>
-                        ({t('Limitador default')})
-                      </span>
-                    </DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>{t('Window')}</DescriptionListTerm>
-                    <DescriptionListDescription><code>{tightestWindow}</code></DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>{t('Total budget')}</DescriptionListTerm>
-                    <DescriptionListDescription>
-                      {allRates.length === 0 ? '∞' : totalBudget.toLocaleString()}{' '}
-                      <span style={{ color: 'var(--pf-v5-global--Color--300)' }}>
-                        {t('across {{n}} rate spec(s)', { n: allRates.length })}
-                      </span>
-                    </DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>{t('Scope')}</DescriptionListTerm>
-                    <DescriptionListDescription>{scope}</DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>{t('Created')}</DescriptionListTerm>
-                    <DescriptionListDescription>
-                      {policy.metadata?.creationTimestamp
-                        ? new Date(policy.metadata.creationTimestamp).toLocaleString()
-                        : '—'}
+                      {metrics.topConsumers.length === 0
+                        ? '—'
+                        : metrics.topConsumers
+                            .map((c) => `${c.consumerId} (${c.perMin}/min)`)
+                            .join(', ')}
                     </DescriptionListDescription>
                   </DescriptionListGroup>
                 </DescriptionList>
-              </CardBody>
-            </Card>
-          </GridItem>
-
-          {/* Target panel */}
-          <GridItem md={6}>
-            <Card>
-              <CardTitle>{t('Target')}</CardTitle>
-              <CardBody>
-                <DescriptionList isCompact isHorizontal>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>{t('Kind')}</DescriptionListTerm>
-                    <DescriptionListDescription>
-                      {targetRef ? <Label color="blue" isCompact>{targetRef.kind}</Label> : '—'}
-                    </DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>{t('Name')}</DescriptionListTerm>
-                    <DescriptionListDescription>
-                      {targetRef ? (
-                        <Link to={targetPath}>{targetRef.name}</Link>
-                      ) : (
-                        '—'
-                      )}
-                    </DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>{t('Namespace')}</DescriptionListTerm>
-                    <DescriptionListDescription>{targetNs || '—'}</DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>{t('Total limits')}</DescriptionListTerm>
-                    <DescriptionListDescription>{totalLimits}</DescriptionListDescription>
-                  </DescriptionListGroup>
-                </DescriptionList>
-              </CardBody>
-            </Card>
-          </GridItem>
-
-          {/* Reverse-lookup panel */}
-          <GridItem md={6}>
-            <Card>
-              <CardTitle>{t('Used by API Products')}</CardTitle>
-              <CardBody>
-                {usedBy.length === 0 ? (
-                  <span style={{ color: 'var(--pf-v5-global--Color--200)' }}>
-                    {t('No APIProduct surfaces this policy yet.')}
-                  </span>
-                ) : (
-                  <ul style={{ paddingLeft: 18, margin: 0 }}>
-                    {usedBy.map((p) => (
-                      <li key={p.metadata?.uid}>
-                        <Link
-                          to={`/connectivity-link/api-products/${p.metadata?.namespace}/${p.metadata?.name}`}
-                        >
-                          {p.spec?.displayName || p.metadata?.name}
-                        </Link>{' '}
-                        <span style={{ color: 'var(--pf-v5-global--Color--300)' }}>
-                          ({p.metadata?.namespace}/{p.metadata?.name})
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </CardBody>
-            </Card>
-          </GridItem>
-
-          {/* Limits sections — one per block (top-level / defaults / overrides) */}
-          {Object.keys(topLimits).length > 0 && (
-            <GridItem span={12}>
-              <Card>
-                <CardTitle>{t('Limits')}</CardTitle>
-                <CardBody>
-                  <RateLimitVisualizer limits={topLimits} variant="cards" />
-                </CardBody>
-              </Card>
-            </GridItem>
-          )}
-          {Object.keys(defaultsLimits).length > 0 && (
-            <GridItem span={12}>
-              <Card>
-                <CardTitle>
-                  {t('Defaults')}{' '}
-                  <Label color="grey" isCompact>
-                    {t('overridable by routes attached to this target')}
-                  </Label>
-                </CardTitle>
-                <CardBody>
-                  <RateLimitVisualizer limits={defaultsLimits} variant="cards" />
-                </CardBody>
-              </Card>
-            </GridItem>
-          )}
-          {Object.keys(overridesLimits).length > 0 && (
-            <GridItem span={12}>
-              <Card>
-                <CardTitle>
-                  {t('Overrides')}{' '}
-                  <Label color="red" isCompact>
-                    {t('hard ceiling — cannot be relaxed by lower-level policies')}
-                  </Label>
-                </CardTitle>
-                <CardBody>
-                  <RateLimitVisualizer limits={overridesLimits} variant="cards" />
-                </CardBody>
-              </Card>
-            </GridItem>
-          )}
-
-          {totalLimits === 0 && (
-            <GridItem span={12}>
-              <Card>
-                <CardBody>
-                  <EmptyState
-                    variant="sm"
-                    titleText={t('No limits declared')}
-                    headingLevel="h3"
-                  >
-                    <EmptyStateBody>
-                      {t('This RateLimitPolicy is attached but does not declare any rates — all requests pass.')}
-                    </EmptyStateBody>
-                  </EmptyState>
-                </CardBody>
-              </Card>
-            </GridItem>
-          )}
-        </Grid>
-      </PageSection>
-    </>
+              </GridItem>
+            </Grid>
+          </PolicyMetricsCard>
+        </>
+      }
+      sideColumn={
+        <>
+          <PolicyTargetCard targetRef={ref} policyNamespace={ns || ''} />
+          <AffectedResourcesCard targetRef={ref} policyNamespace={ns || ''} />
+          <PolicyTroubleshootingCard policy={policy} summary={summary} targetRef={ref} />
+          <PolicyEventsCard policy={policy} />
+        </>
+      }
+    />
   );
 };
-
-/**
- * Synthesises a human "scope" description from the policy spec:
- *   - `Per API Key` when any limit's `counters` mentions an auth identity
- *     selector
- *   - `Per route` for an HTTPRoute-scoped policy without counters
- *   - `Per gateway` for a Gateway-scoped policy without counters
- *   - `Custom counter (<keys>)` when the policy declares custom counter keys
- *
- * Pure string derivation — no metrics needed.
- */
-function describeScope(policy: RateLimitPolicy): string {
-  const allLimits = {
-    ...(policy.spec?.limits || {}),
-    ...(policy.spec?.defaults?.limits || {}),
-    ...(policy.spec?.overrides?.limits || {}),
-  };
-  const counters = Object.values(allLimits)
-    .flatMap((l) => l.counters || [])
-    .filter(Boolean);
-  if (counters.length > 0) {
-    const apiKeyMatch = counters.some((c) =>
-      /(api[_-]?key|identity|consumer|metadata\.name)/i.test(c),
-    );
-    if (apiKeyMatch) return 'Per API Key';
-    return `Custom counter (${counters.slice(0, 2).join(', ')}${counters.length > 2 ? '…' : ''})`;
-  }
-  const targetKind = primaryTargetRef(policy)?.kind;
-  if (targetKind === 'Gateway') return 'Per gateway';
-  if (targetKind === 'HTTPRoute') return 'Per route';
-  return '—';
-}
 
 export default RateLimitPolicyDetailPage;
