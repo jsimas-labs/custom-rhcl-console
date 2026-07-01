@@ -22,6 +22,19 @@
  *     tempoNamespace: tempo
  *     tempoGatewayRouteName: tempo-tempo-rhcl-gateway
  *     tempoStackName: tempo-rhcl
+ *     # Absolute URL of the customer's Developer Portal. When set, a
+ *     # "Developer Portal" item appears in the plugin's sidebar that
+ *     # opens the URL directly. Leave unset to hide the item entirely.
+ *     developerPortalUrl: https://developer-portal.bb.com.br
+ *     # req018 — Cost Monitoring.
+ *     # `costCurrency` is shown next to monetary values. Leave unset to
+ *     # default to "BRL". `costPricing` is a JSON-encoded record of tier
+ *     # → {tokens_per_1k, calls_per_1k}; tier keys must match the
+ *     # `secret.kuadrant.io/plan-id` annotation on the APIKey Secrets
+ *     # (typically gold/silver/bronze + anonymous). Unset or empty ⇒
+ *     # plugin hides the monetary column and only shows raw usage.
+ *     costCurrency: BRL
+ *     costPricing: '{"gold":{"tokens_per_1k":0.10,"calls_per_1k":0.05}, …}'
  *
  * Every field is optional — the hooks fall back to the original
  * hard-coded values when the ConfigMap is missing or a field is unset,
@@ -46,6 +59,61 @@ export interface PluginConfig {
   tempoNamespace?: string;
   tempoGatewayRouteName?: string;
   tempoStackName?: string;
+  developerPortalUrl?: string;
+  // req018 — Cost Monitoring.
+  costCurrency?: string;
+  // JSON-encoded record<tierName, {tokens_per_1k, calls_per_1k}>.
+  // Parsed by the CostMonitoring hook, kept as a string here so the
+  // ConfigMap stays a flat string→string map (the K8s schema).
+  costPricing?: string;
+  /**
+   * Optional monthly budget (numeric, in `costCurrency` units). When set,
+   * the Cost Monitoring page surfaces a "Budget Usage" KPI with a
+   * projected-month-end estimate. Leave unset to hide the card.
+   * ConfigMap values are strings — the hook parses the number.
+   */
+  costBudget?: string | number;
+}
+
+/**
+ * Per-tier price multiplier the Cost Monitoring view applies on top of
+ * raw usage. `tokens_per_1k` covers AI prompt + completion tokens
+ * combined; `calls_per_1k` covers every HTTP call to the gateway.
+ *
+ * Tier keys are matched case-insensitively against the
+ * `secret.kuadrant.io/plan-id` annotation on each APIKey Secret. An
+ * unknown tier falls back to the `anonymous` entry if present, then to
+ * zero pricing (raw usage only).
+ */
+export interface CostPricingTier {
+  tokens_per_1k: number;
+  calls_per_1k: number;
+}
+export type CostPricing = Record<string, CostPricingTier>;
+
+/**
+ * Parse the `costPricing` ConfigMap value defensively — operators edit
+ * the ConfigMap by hand so we never trust the JSON shape blindly.
+ * Returns an empty record (which the cost view treats as "show usage
+ * only, no monetary column") for any unparseable / wrong-shaped value.
+ */
+export function parseCostPricing(raw?: string): CostPricing {
+  if (!raw || !raw.trim()) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const out: CostPricing = {};
+    for (const [tier, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!value || typeof value !== 'object') continue;
+      const v = value as Record<string, unknown>;
+      const tokens = typeof v.tokens_per_1k === 'number' ? v.tokens_per_1k : 0;
+      const calls = typeof v.calls_per_1k === 'number' ? v.calls_per_1k : 0;
+      out[tier.toLowerCase()] = { tokens_per_1k: tokens, calls_per_1k: calls };
+    }
+    return out;
+  } catch {
+    return {};
+  }
 }
 
 interface ConfigMapResource extends K8sResourceCommon {

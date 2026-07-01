@@ -17,6 +17,22 @@ import RateLimitVisualizer, {
   RateLimitEntries,
 } from '../policies/RateLimitVisualizer';
 
+const PLAN_PREDICATE_TOKEN = 'auth.kuadrant.plan';
+
+/**
+ * True when a RateLimit has at least one `when[]` entry that ties it to
+ * a subscription plan. Matches both CEL ({@code predicate} containing
+ * {@code auth.kuadrant.plan}) and the legacy selector form
+ * ({@code selector === "auth.kuadrant.plan"}).
+ */
+function isPlanTied(limit: RateLimit): boolean {
+  for (const w of limit.when || []) {
+    if ('predicate' in w && w.predicate?.includes(PLAN_PREDICATE_TOKEN)) return true;
+    if ('selector' in w && w.selector === PLAN_PREDICATE_TOKEN) return true;
+  }
+  return false;
+}
+
 interface PlansCardsProps {
   /**
    * Synthesised plan summary from APIProduct.status. Used as a fallback
@@ -63,6 +79,15 @@ const PlansCards: React.FC<PlansCardsProps> = ({
   // separately would inflate the card count without giving more signal at
   // this overview level — the dedicated RateLimitPolicy detail page is
   // where the defaults/overrides split lives.
+  //
+  // Only plan-tied limits belong on the "Plans" tab — a limit qualifies
+  // when at least one `when[]` entry references `auth.kuadrant.plan`
+  // (CEL form for v1+, selector form for legacy policies). Limits with
+  // no predicate (e.g. an unconditional `global-burst` cap) are
+  // gateway-wide guardrails, not subscription plans, and surfacing them
+  // here makes operators think they can issue a key under that tier —
+  // they can't. Those still show up on the RateLimitPolicy detail page,
+  // which is the right home for them.
   const mergedLimits: RateLimitEntries = React.useMemo(() => {
     const out: RateLimitEntries = {};
     for (const p of attached) {
@@ -70,7 +95,11 @@ const PlansCards: React.FC<PlansCardsProps> = ({
       for (const [k, v] of Object.entries(p.spec?.defaults?.limits || {})) out[k] = v;
       for (const [k, v] of Object.entries(p.spec?.overrides?.limits || {})) out[k] = v;
     }
-    return out;
+    const planTied: RateLimitEntries = {};
+    for (const [k, v] of Object.entries(out)) {
+      if (isPlanTied(v)) planTied[k] = v;
+    }
+    return planTied;
   }, [attached]);
 
   // ----- Render path 1: attached RateLimitPolicy(s) found -----

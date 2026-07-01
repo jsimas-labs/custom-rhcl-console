@@ -1,0 +1,429 @@
+/*
+ * Cost Monitoring — "PatternFly Plus" visual layer.
+ *
+ * Surfaces follow a clear elevation hierarchy:
+ *
+ *   page (deepest)
+ *     └─ card (one step lighter, glass overlay, top highlight)
+ *
+ * In PF v6, `--pf-t--global--background--color--primary--default` is the
+ * deepest surface (the page itself) and `--floating--default` is the most
+ * elevated (modals, popovers). Cards sit between — we layer a subtle
+ * white-tinted gradient on top of the floating surface to get the glass
+ * look without hard-coding hex (so light mode still works).
+ *
+ * Why the `inset 0 1px 0 rgba(255,255,255,0.06)` highlight: cards on a
+ * dark surface read as "glass" or "frosted" when the very top edge
+ * picks up an imaginary light source — a single 1px inner highlight
+ * sells the effect cheaply without a real bevel.
+ */
+
+.rhcl-cost-root {
+  /* Page-level deepest surface. The cards on top read as floating. */
+  background: var(--pf-t--global--background--color--primary--default);
+  min-height: 100%;
+  padding-bottom: 24px;
+
+  /* Text palette aliases — re-mapped to the PF v6 text tokens so they
+     adapt to light/dark mode. The `--nonstatus--gray--default` token
+     I was using before is a neutral chip background, not a body
+     text colour — on dark surfaces it resolved to ~#6a6e73 which is
+     barely legible. `text--color--subtle` resolves to a readable
+     mid-grey that adapts to the theme. */
+  --rhcl-text-strong: var(--pf-t--global--text--color--regular);
+  --rhcl-text-subtle: var(--pf-t--global--text--color--subtle);
+}
+
+/* --------- Header --------- */
+.rhcl-page-header {
+  background: linear-gradient(
+    180deg,
+    var(--pf-t--global--background--color--secondary--default) 0%,
+    var(--pf-t--global--background--color--primary--default) 100%
+  );
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.rhcl-beta-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  color: var(--pf-t--global--color--brand--default);
+  background: var(--pf-t--global--color--brand--100);
+  border: 1px solid var(--pf-t--global--color--brand--default);
+}
+
+/* --------- Base card surface (glass) ---------
+ *
+ * Used by every elevated tile on the page — KPI, section, insight,
+ * Grafana link. Centralised so they all share the exact same vitrified
+ * look, and a future palette tweak edits one place.
+ */
+.rhcl-kpi-card,
+.rhcl-section-card,
+.rhcl-insight-card,
+.rhcl-grafana-card {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0) 70%
+    ),
+    var(--pf-t--global--background--color--floating--default) !important;
+  border: 1px solid var(--pf-t--global--border--color--default) !important;
+  border-radius: var(--pf-t--global--border--radius--medium) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),  /* top edge highlight (glass) */
+    0 1px 2px rgba(0, 0, 0, 0.2),             /* base contact shadow */
+    0 8px 24px -12px rgba(0, 0, 0, 0.35) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition:
+    transform 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --------- KPI cards --------- */
+.rhcl-kpi-card {
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+}
+
+.rhcl-kpi-card::before {
+  /* Accent strip — the visual cue that ties the colour family on the
+     icon, the sparkline and the card edge together. */
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--rhcl-accent-from, var(--pf-t--global--color--brand--default)),
+    var(--rhcl-accent-to, var(--pf-t--global--color--brand--default))
+  );
+  opacity: 0.9;
+  z-index: 1;
+}
+
+.rhcl-kpi-card::after {
+  /* Soft accent glow leaking from the top-left corner — adds depth
+     without competing with the value. */
+  content: "";
+  position: absolute;
+  top: -40px;
+  left: -40px;
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(
+    circle,
+    var(--rhcl-accent-soft, transparent) 0%,
+    transparent 70%
+  );
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.rhcl-kpi-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.rhcl-kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 14px 32px -10px rgba(0, 0, 0, 0.45) !important;
+  border-color: var(--rhcl-accent-from, var(--pf-t--global--color--brand--default)) !important;
+}
+
+.rhcl-icon-badge {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background:
+    linear-gradient(
+      135deg,
+      var(--rhcl-accent-soft, var(--pf-t--global--color--brand--100)),
+      rgba(255, 255, 255, 0.02)
+    );
+  border: 1px solid var(--rhcl-accent-soft, var(--pf-t--global--border--color--default));
+  color: var(--rhcl-accent-from, var(--pf-t--global--color--brand--default));
+  font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.rhcl-kpi-value {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 8px;
+  color: var(--pf-t--global--text--color--regular);
+  line-height: 1.15;
+}
+
+.rhcl-kpi-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rhcl-text-subtle);
+}
+
+.rhcl-kpi-subtitle {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pf-t--global--text--color--regular);
+  line-height: 1.35;
+}
+
+/* Medium icon badge — used inside rows (drivers, what-changed). */
+.rhcl-icon-badge--md {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+
+/* "What changed?" row. */
+.rhcl-wc-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.rhcl-wc-row:last-child {
+  border-bottom: 0;
+}
+.rhcl-wc-body {
+  min-width: 0;
+}
+.rhcl-wc-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pf-t--global--text--color--regular);
+  line-height: 1.35;
+}
+.rhcl-wc-detail {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--rhcl-text-subtle);
+  line-height: 1.4;
+}
+.rhcl-wc-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pf-t--global--color--brand--default);
+  text-decoration: none;
+  align-self: center;
+}
+.rhcl-wc-cta:hover {
+  text-decoration: underline;
+}
+.rhcl-wc-cta--disabled {
+  color: var(--rhcl-text-subtle);
+  cursor: not-allowed;
+}
+
+/* Per-KPI accent palette. The `soft` variant is used by the badge bg
+   and the corner glow; `from`→`to` paints the top strip + sparkline. */
+.rhcl-kpi--cost {
+  --rhcl-accent-from: #2b9af3;
+  --rhcl-accent-to: #4cb1ff;
+  --rhcl-accent-soft: rgba(43, 154, 243, 0.22);
+}
+.rhcl-kpi--requests {
+  --rhcl-accent-from: #9c6bff;
+  --rhcl-accent-to: #b07eff;
+  --rhcl-accent-soft: rgba(156, 107, 255, 0.22);
+}
+.rhcl-kpi--tokens {
+  --rhcl-accent-from: #2dd4bf;
+  --rhcl-accent-to: #5eead4;
+  --rhcl-accent-soft: rgba(45, 212, 191, 0.22);
+}
+.rhcl-kpi--consumer {
+  --rhcl-accent-from: #71e07a;
+  --rhcl-accent-to: #a7f3a9;
+  --rhcl-accent-soft: rgba(113, 224, 122, 0.22);
+}
+.rhcl-kpi--budget {
+  --rhcl-accent-from: #fb923c;
+  --rhcl-accent-to: #fed26b;
+  --rhcl-accent-soft: rgba(251, 146, 60, 0.22);
+}
+
+/* --------- Section cards (drivers, top consumers) --------- */
+.rhcl-section-card {
+  height: 100%;
+}
+
+.rhcl-section-card:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 12px 28px -10px rgba(0, 0, 0, 0.4) !important;
+}
+
+.rhcl-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 14px 0;
+  color: var(--pf-t--global--text--color--regular);
+}
+.rhcl-section-title-h2 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.rhcl-driver-row {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.rhcl-driver-row:last-child {
+  border-bottom: 0;
+}
+
+/* --------- Operational Insights --------- */
+.rhcl-insight-card {
+  position: relative;
+  border-left: 3px solid transparent !important;
+  height: 100%;
+}
+.rhcl-insight-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 10px 24px -8px rgba(0, 0, 0, 0.4) !important;
+}
+.rhcl-insight--positive {
+  border-left-color: var(--pf-t--global--color--status--success--default) !important;
+}
+.rhcl-insight--warning {
+  border-left-color: var(--pf-t--global--color--status--warning--default) !important;
+}
+.rhcl-insight--neutral {
+  border-left-color: var(--pf-t--global--color--status--info--default) !important;
+}
+
+.rhcl-insight-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pf-t--global--color--brand--default);
+  text-decoration: none;
+}
+.rhcl-insight-cta:hover {
+  text-decoration: underline;
+}
+
+/* --------- Grafana link cards --------- */
+.rhcl-grafana-card {
+  cursor: pointer;
+  height: 100%;
+}
+.rhcl-grafana-card:hover {
+  border-color: var(--pf-t--global--color--brand--default) !important;
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 10px 24px -8px rgba(0, 0, 0, 0.4) !important;
+}
+.rhcl-grafana-card--disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* --------- Sparkline gradient fill ---------
+ *
+ * Stroke + fill both inherit `--rhcl-accent-from` from the parent
+ * KPI card's variant class — no prop drilling needed.
+ */
+.rhcl-sparkline-fill {
+  fill: var(--rhcl-accent-from, var(--pf-t--global--color--brand--default));
+  opacity: 0.14;
+}
+.rhcl-sparkline-stroke {
+  stroke: var(--rhcl-accent-from, var(--pf-t--global--color--brand--default));
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+.rhcl-sparkline-tip {
+  fill: var(--rhcl-accent-from, var(--pf-t--global--color--brand--default));
+  stroke: rgba(255, 255, 255, 0.6);
+  stroke-width: 0.75;
+}
+
+/* --------- Page rhythm --------- */
+.rhcl-page-section {
+  padding-top: 20px !important;
+  padding-bottom: 8px !important;
+}
+
+/* --------- Table blends with the section card ---------
+ *
+ * PatternFly Table renders with its own opaque background colour
+ * (`--pf-v6-c-table--BackgroundColor`) that sat as a black slab on
+ * top of the glass card surface — competing with the rest of the
+ * page. Reset it to transparent so the table reads as part of the
+ * card, mirroring how the What-changed rows sit naturally on theirs.
+ */
+.rhcl-cost-root .rhcl-section-card .pf-v6-c-table,
+.rhcl-cost-root .rhcl-section-card .pf-v6-c-table > thead,
+.rhcl-cost-root .rhcl-section-card .pf-v6-c-table > tbody,
+.rhcl-cost-root .rhcl-section-card .pf-v6-c-table tr,
+.rhcl-cost-root .rhcl-section-card .pf-v6-c-table th,
+.rhcl-cost-root .rhcl-section-card .pf-v6-c-table td,
+.rhcl-cost-root .rhcl-section-card .pf-v5-c-table,
+.rhcl-cost-root .rhcl-section-card .pf-v5-c-table > thead,
+.rhcl-cost-root .rhcl-section-card .pf-v5-c-table > tbody,
+.rhcl-cost-root .rhcl-section-card .pf-v5-c-table tr,
+.rhcl-cost-root .rhcl-section-card .pf-v5-c-table th,
+.rhcl-cost-root .rhcl-section-card .pf-v5-c-table td {
+  background-color: transparent !important;
+  --pf-v6-c-table--BackgroundColor: transparent !important;
+  --pf-v5-c-table--BackgroundColor: transparent !important;
+}
+.rhcl-cost-root .rhcl-section-card .pf-v6-c-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.rhcl-cost-root .rhcl-section-card .pf-v6-c-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+.rhcl-cost-root .rhcl-section-card .pf-v6-c-table thead th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rhcl-text-subtle);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
