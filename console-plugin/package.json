@@ -89,11 +89,17 @@
       "HTTPRouteDetailPage": "./components/httproutes/HTTPRouteDetailPage",
       "PolicyListPage": "./components/policies/PolicyListPage",
       "RateLimitPolicyDetailPage": "./components/policies/RateLimitPolicyDetailPage",
-      "TopologyPage": "./components/topology/TopologyPage",
+      "AuthPolicyDetailPage": "./components/policies/AuthPolicyDetailPage",
+      "TokenRateLimitPolicyDetailPage": "./components/policies/TokenRateLimitPolicyDetailPage",
+      "DNSPolicyDetailPage": "./components/policies/DNSPolicyDetailPage",
+      "TLSPolicyDetailPage": "./components/policies/TLSPolicyDetailPage",
       "APIProductListPage": "./components/api-products/APIProductListPage",
       "APIOverviewPage": "./components/api-products/APIOverviewPage",
       "APIKeysListPage": "./components/api-keys/APIKeysListPage",
-      "PlansListPage": "./components/plans/PlansListPage"
+      "PlansListPage": "./components/plans/PlansListPage",
+      "CostMonitoringPage": "./components/cost/CostMonitoringPage",
+      "DeveloperPortalRedirect": "./components/developer-portal/DeveloperPortalRedirect",
+      "developerPortalFlag": "./feature-flags/developerPortalFlag"
     },
     "dependencies": {
       "@console/pluginAPI": ">=4.19.0-0"

@@ -15,6 +15,8 @@ import StatusLabel from '../common/StatusLabel';
 import HostnameCell from '../common/HostnameCell';
 import EmptyRBACState from '../common/EmptyRBACState';
 import FilterToolbar from '../common/FilterToolbar';
+import ResourceActionsMenu from '../common/ResourceActionsMenu';
+import '../../styles/plugin-glass.css';
 
 const GatewayListPage: React.FC = () => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
@@ -64,22 +66,27 @@ const GatewayListPage: React.FC = () => {
     return items;
   }, [gateways, selectedNamespace, searchValue, selectedStatuses]);
 
+  // Every early return has to keep the `rhcl-plugin-root` wrapper on
+  // the outermost element too — otherwise the loading spinner and the
+  // RBAC-denied state paint over the Console's raw black chrome instead
+  // of the plugin's softer `secondary--default` surface, and the page
+  // "flashes black" every navigation before the real data lands.
   if (!loaded) {
     return (
-      <>
+      <div className="rhcl-plugin-root">
         <PageSection variant="default">
           <Title headingLevel="h1">{t('Gateways')}</Title>
         </PageSection>
         <PageSection isFilled>
           <Bullseye><Spinner size="xl" /></Bullseye>
         </PageSection>
-      </>
+      </div>
     );
   }
 
   if (!hasAccess) {
     return (
-      <>
+      <div className="rhcl-plugin-root">
         <PageSection variant="default">
           <Title headingLevel="h1">{t('Gateways')}</Title>
         </PageSection>
@@ -91,12 +98,12 @@ const GatewayListPage: React.FC = () => {
             kind="Gateway"
           />
         </PageSection>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="rhcl-plugin-root">
       <PageSection variant="default">
         <Title headingLevel="h1">{t('Gateways')}</Title>
       </PageSection>
@@ -120,6 +127,7 @@ const GatewayListPage: React.FC = () => {
               <Th>{t('Status')}</Th>
               <Th>{t('Listeners')}</Th>
               <Th>{t('Hostnames')}</Th>
+              <Th aria-label={t('Actions')} />
             </Tr>
           </Thead>
           <Tbody>
@@ -129,7 +137,7 @@ const GatewayListPage: React.FC = () => {
           </Tbody>
         </Table>
       </PageSection>
-    </>
+    </div>
   );
 };
 
@@ -156,6 +164,14 @@ const GatewayRow: React.FC<{ gateway: Gateway }> = ({ gateway }) => {
       </Td>
       <Td>{gateway.spec?.listeners?.length ?? 0}</Td>
       <Td><HostnameCell hostnames={hostnames} /></Td>
+      <Td isActionCell>
+        <ResourceActionsMenu
+          gvk={GatewayGVK}
+          namespace={ns}
+          name={name}
+          listHref="/connectivity-link/gateways"
+        />
+      </Td>
     </Tr>
   );
 };

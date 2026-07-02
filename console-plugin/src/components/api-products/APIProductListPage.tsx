@@ -17,6 +17,8 @@ import { APIProductGVK } from '../../models';
 import { APIProduct } from '../../types';
 import EmptyRBACState from '../common/EmptyRBACState';
 import FilterToolbar from '../common/FilterToolbar';
+import ResourceActionsMenu from '../common/ResourceActionsMenu';
+import '../../styles/plugin-glass.css';
 
 const APIProductListPage: React.FC = () => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
@@ -54,22 +56,25 @@ const APIProductListPage: React.FC = () => {
     return items;
   }, [apiProducts, searchValue, selectedStatuses]);
 
+  // Keep `.rhcl-plugin-root` on all early returns so the loading and
+  // RBAC-denied states stay on the plugin's dark-gray surface instead
+  // of flashing the Console's black background.
   if (!loaded) {
     return (
-      <>
+      <div className="rhcl-plugin-root">
         <PageSection variant="default">
           <Title headingLevel="h1">{t('API Products')}</Title>
         </PageSection>
         <PageSection isFilled>
           <Bullseye><Spinner size="xl" /></Bullseye>
         </PageSection>
-      </>
+      </div>
     );
   }
 
   if (!hasAccess) {
     return (
-      <>
+      <div className="rhcl-plugin-root">
         <PageSection variant="default">
           <Title headingLevel="h1">{t('API Products')}</Title>
         </PageSection>
@@ -81,12 +86,12 @@ const APIProductListPage: React.FC = () => {
             kind="APIProduct"
           />
         </PageSection>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="rhcl-plugin-root">
       <PageSection variant="default">
         <Title headingLevel="h1">{t('API Products')}</Title>
       </PageSection>
@@ -107,6 +112,7 @@ const APIProductListPage: React.FC = () => {
               <Th>{t('Publish status')}</Th>
               <Th>{t('Approval mode')}</Th>
               <Th>{t('Tags')}</Th>
+              <Th aria-label={t('Actions')} />
             </Tr>
           </Thead>
           <Tbody>
@@ -139,13 +145,22 @@ const APIProductListPage: React.FC = () => {
                       '-'
                     )}
                   </Td>
+                  <Td isActionCell>
+                    <ResourceActionsMenu
+                      gvk={APIProductGVK}
+                      namespace={ns}
+                      name={name}
+                      listHref="/connectivity-link/api-products"
+                      displayName={displayName}
+                    />
+                  </Td>
                 </Tr>
               );
             })}
           </Tbody>
         </Table>
       </PageSection>
-    </>
+    </div>
   );
 };
 

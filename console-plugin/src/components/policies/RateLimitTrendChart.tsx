@@ -10,6 +10,7 @@ import {
 import { Card, CardBody, CardTitle } from '@patternfly/react-core';
 import { useTranslation } from 'react-i18next';
 import { usePrometheusRange } from '../../hooks/usePrometheusRange';
+import { useResponsiveChartWidth } from '../../hooks/useResponsiveChartWidth';
 import {
   rateLimitAllowedRangeQuery,
   rateLimitRejectionsRangeQuery,
@@ -86,6 +87,8 @@ export default function RateLimitTrendChart({
     { name: t('Rejected'), symbol: { fill: COLORS[1] } },
   ];
 
+  const [containerRef, chartWidth] = useResponsiveChartWidth();
+
   return (
     <Card isCompact>
       <CardTitle>{title || `${t('Usage trend')} (${t('last hour')})`}</CardTitle>
@@ -99,40 +102,43 @@ export default function RateLimitTrendChart({
             {t('No traffic recorded in the window — the chart populates once requests flow through the target.')}
           </Empty>
         ) : (
-          <Chart
-            height={220}
-            padding={{ top: 10, bottom: 50, left: 60, right: 20 }}
-            scale={{ x: 'time' }}
-            containerComponent={
-              <ChartVoronoiContainer
-                labels={({ datum }: { datum: { x: Date; y: number; childName: string } }) =>
-                  `${datum.childName}: ${datum.y?.toFixed(2)} req/s`
-                }
-              />
-            }
-            legendData={legendData}
-            legendPosition="bottom"
-            themeColor={ChartThemeColor.multiUnordered}
-          >
-            <ChartAxis tickFormat={(t) => formatTime(t)} fixLabelOverlap />
-            <ChartAxis dependentAxis tickFormat={(t: number) => t.toFixed(1)} />
-            <ChartGroup>
-              {series.map((s, i) => (
-                <ChartArea
-                  key={s.label}
-                  name={s.label}
-                  data={s.data.map((d) => ({ x: d.x, y: d.y }))}
-                  style={{
-                    data: {
-                      fill: COLORS[i],
-                      fillOpacity: 0.3,
-                      stroke: COLORS[i],
-                    },
-                  }}
+          <div ref={containerRef} style={{ width: '100%' }}>
+            <Chart
+              width={chartWidth}
+              height={220}
+              padding={{ top: 10, bottom: 50, left: 60, right: 20 }}
+              scale={{ x: 'time' }}
+              containerComponent={
+                <ChartVoronoiContainer
+                  labels={({ datum }: { datum: { x: Date; y: number; childName: string } }) =>
+                    `${datum.childName}: ${datum.y?.toFixed(2)} req/s`
+                  }
                 />
-              ))}
-            </ChartGroup>
-          </Chart>
+              }
+              legendData={legendData}
+              legendPosition="bottom"
+              themeColor={ChartThemeColor.multiUnordered}
+            >
+              <ChartAxis tickFormat={(t) => formatTime(t)} fixLabelOverlap />
+              <ChartAxis dependentAxis tickFormat={(t: number) => t.toFixed(1)} />
+              <ChartGroup>
+                {series.map((s, i) => (
+                  <ChartArea
+                    key={s.label}
+                    name={s.label}
+                    data={s.data.map((d) => ({ x: d.x, y: d.y }))}
+                    style={{
+                      data: {
+                        fill: COLORS[i],
+                        fillOpacity: 0.3,
+                        stroke: COLORS[i],
+                      },
+                    }}
+                  />
+                ))}
+              </ChartGroup>
+            </Chart>
+          </div>
         )}
       </CardBody>
     </Card>

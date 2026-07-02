@@ -51,23 +51,12 @@
     }
   },
   {
-    "type": "console.navigation/href",
-    "properties": {
-      "id": "connectivity-link-topology",
-      "name": "%plugin__custom-rhcl-console~Topology%",
-      "href": "/connectivity-link/topology",
-      "perspective": "admin",
-      "section": "connectivity-link",
-      "insertAfter": "connectivity-link-policies"
-    }
-  },
-  {
     "type": "console.navigation/separator",
     "properties": {
       "id": "connectivity-link-separator",
       "perspective": "admin",
       "section": "connectivity-link",
-      "insertAfter": "connectivity-link-topology"
+      "insertAfter": "connectivity-link-policies"
     }
   },
   {
@@ -101,6 +90,56 @@
       "perspective": "admin",
       "section": "connectivity-link",
       "insertAfter": "connectivity-link-plans"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-cost",
+      "name": "%plugin__custom-rhcl-console~Cost%",
+      "href": "/connectivity-link/cost",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-apikeys"
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/cost",
+      "component": { "$codeRef": "CostMonitoringPage" }
+    }
+  },
+  {
+    "type": "console.flag/hookProvider",
+    "properties": {
+      "handler": { "$codeRef": "developerPortalFlag.useDeveloperPortalFlag" }
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-developer-portal",
+      "name": "%plugin__custom-rhcl-console~Developer Portal%",
+      "href": "/connectivity-link/developer-portal",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-apikeys"
+    },
+    "flags": {
+      "required": ["DEVELOPER_PORTAL_URL_PRESENT"]
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/developer-portal",
+      "component": { "$codeRef": "DeveloperPortalRedirect" }
+    },
+    "flags": {
+      "required": ["DEVELOPER_PORTAL_URL_PRESENT"]
     }
   },
   {
@@ -177,8 +216,32 @@
     "type": "console.page/route",
     "properties": {
       "exact": true,
-      "path": "/connectivity-link/topology",
-      "component": { "$codeRef": "TopologyPage" }
+      "path": "/connectivity-link/policies/auth/:ns/:name",
+      "component": { "$codeRef": "AuthPolicyDetailPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/policies/tokenratelimit/:ns/:name",
+      "component": { "$codeRef": "TokenRateLimitPolicyDetailPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/policies/dns/:ns/:name",
+      "component": { "$codeRef": "DNSPolicyDetailPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/policies/tls/:ns/:name",
+      "component": { "$codeRef": "TLSPolicyDetailPage" }
     }
   },
   {

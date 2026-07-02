@@ -34,7 +34,9 @@ import {
   Label,
   CodeBlock,
   CodeBlockCode,
+  Button,
 } from '@patternfly/react-core';
+import { CubeIcon } from '@patternfly/react-icons';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import { useTranslation } from 'react-i18next';
@@ -44,11 +46,14 @@ import { Gateway, HTTPRoute, K8sCondition } from '../../types';
 import { getGatewayExternalHostnames } from '../../utils/hostname';
 import StatusLabel from '../common/StatusLabel';
 import { OpenInGrafanaButton } from '../common/OpenInGrafanaButton';
+import { OpenInTempoButton } from '../common/OpenInTempoButton';
 import HostnameCell from '../common/HostnameCell';
 import TrafficPanel from '../common/TrafficPanel';
 import { PolicyAttachmentView } from '../policies/PolicyAttachmentView';
 import TLSHealthCard from '../health/TLSHealthCard';
 import DNSHealthCard from '../health/DNSHealthCard';
+import ResourceActionsMenu from '../common/ResourceActionsMenu';
+import '../../styles/plugin-glass.css';
 
 const GatewayDetailPage: React.FC = () => {
   const { ns, name } = useParams<{ ns: string; name: string }>();
@@ -72,20 +77,23 @@ const GatewayDetailPage: React.FC = () => {
     [gateways, name],
   );
 
+  // Wrap the loading state so the page doesn't flash the Console's raw
+  // black background before Gateway data arrives — same rationale as
+  // the list page (`.rhcl-plugin-root` paints `secondary--default`).
   if (!loaded || !gateway) {
     return (
-      <>
+      <div className="rhcl-plugin-root">
         <PageSection isFilled>
           <Bullseye><Spinner size="xl" /></Bullseye>
         </PageSection>
-      </>
+      </div>
     );
   }
 
   const hostnames = getGatewayExternalHostnames(gateway);
 
   return (
-    <>
+    <div className="rhcl-plugin-root">
       <PageSection variant="default">
         <Breadcrumb>
           <BreadcrumbItem>
@@ -99,14 +107,50 @@ const GatewayDetailPage: React.FC = () => {
           <Title headingLevel="h1">
             {name} <StatusLabel conditions={gateway.status?.conditions} />
           </Title>
-          {/* Istio's `source_workload` label is `<gateway-name>-<class-name>`
-              (e.g. `rhcl-apps-gateway-openshift-default`). A `<name>-.*` regex
-              covers every gateway-class workload backing this Gateway CR. */}
-          <OpenInGrafanaButton
-            dashboard="api-overview"
-            label={t('Gateway traffic')}
-            vars={{ gateway: `${name}-.*` }}
-          />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {/* Istio's `source_workload` label is `<gateway-name>-<class-name>`
+                — for our default install that's e.g.
+                `rhcl-apps-gateway-openshift-default`. Use the GatewayClass
+                from the CR spec when available so the link lands on a
+                concrete dropdown entry; fall back to a regex so a Gateway
+                whose class field is empty still produces a working query. */}
+            <OpenInGrafanaButton
+              dashboard="api-overview"
+              label={t('Gateway traffic')}
+              vars={{
+                gateway: gateway.spec?.gatewayClassName
+                  ? `${name}-${gateway.spec.gatewayClassName}`
+                  : `${name}-.*`,
+              }}
+            />
+            <OpenInTempoButton
+              label={t('Gateway traces')}
+              vars={{ serviceName: 'rhcl-gateway', lookback: '1h' }}
+            />
+            {/* Drops the operator into the OpenShift Console's native
+                Pods page, filtered by the Gateway API label every
+                gateway-managed pod carries. From there they get
+                Logs / Terminal / Events / YAML for free — no need to
+                re-implement any of that here. */}
+            <Button
+              variant="secondary"
+              icon={<CubeIcon />}
+              component={(props) => (
+                <Link
+                  {...props}
+                  to={`/search/ns/${ns}?kind=Pod&q=gateway.networking.k8s.io%2Fgateway-name%3D${encodeURIComponent(name || '')}`}
+                />
+              )}
+            >
+              {t('Gateway pods')}
+            </Button>
+            <ResourceActionsMenu
+              gvk={{ group: 'gateway.networking.k8s.io', version: 'v1', kind: 'Gateway' }}
+              namespace={ns || ''}
+              name={name || ''}
+              listHref="/connectivity-link/gateways"
+            />
+          </div>
         </div>
       </PageSection>
       <PageSection>
@@ -230,7 +274,7 @@ const GatewayDetailPage: React.FC = () => {
           </Tab>
         </Tabs>
       </PageSection>
-    </>
+    </div>
   );
 };
 

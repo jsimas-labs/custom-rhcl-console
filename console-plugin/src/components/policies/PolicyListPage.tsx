@@ -2,7 +2,7 @@ import * as React from 'react';
 // SDK 4.21 federates react-router 5.3; in v5 `Link` lives only in
 // `react-router-dom`. Keep this until we move back to SDK 4.22+.
 import { Link } from 'react-router-dom';
-import { PageSection, Title, Spinner, Bullseye, Label } from '@patternfly/react-core';
+import { PageSection, Title, Spinner, Bullseye, Label, Tooltip } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import { useTranslation } from 'react-i18next';
@@ -25,18 +25,31 @@ import {
   PolicyKind,
   PolicyTargetReference,
 } from '../../types';
-import { getWorstConditionSeverity, isConditionTrue } from '../../utils/status';
+import { getWorstConditionSeverity, isConditionTrue, getEnforcementState } from '../../utils/status';
 import { primaryTargetRef } from '../../utils/policyTargets';
 import StatusLabel from '../common/StatusLabel';
 import FilterToolbar from '../common/FilterToolbar';
+import ResourceActionsMenu from '../common/ResourceActionsMenu';
 import { ratesToRpm } from './RateLimitVisualizer';
 import { RateLimit } from '../../types';
+import '../../styles/plugin-glass.css';
 
 interface PolicyRow {
   policy: AnyPolicy;
   policyKind: PolicyKind;
   targetRef: PolicyTargetReference;
 }
+
+// Local kind→GVK lookup so the per-row Actions menu can hand a concrete GVK
+// to ResourceActionsMenu. Mirrors POLICY_KIND_TO_GVK in models/index.ts but
+// that map isn't exported; the five kinds we render here match exactly.
+const POLICY_ROW_GVK: Record<PolicyKind, { group?: string; version: string; kind: string }> = {
+  AuthPolicy: AuthPolicyGVK,
+  RateLimitPolicy: RateLimitPolicyGVK,
+  TokenRateLimitPolicy: TokenRateLimitPolicyGVK,
+  DNSPolicy: DNSPolicyGVK,
+  TLSPolicy: TLSPolicyGVK,
+};
 
 const PolicyListPage: React.FC = () => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
@@ -134,21 +147,23 @@ const PolicyListPage: React.FC = () => {
     return items;
   }, [allPolicies, selectedNamespace, searchValue, selectedStatuses, selectedTypes]);
 
+  // Preserve `.rhcl-plugin-root` while policies load — avoids the black
+  // background flash before the list renders.
   if (!loaded) {
     return (
-      <>
+      <div className="rhcl-plugin-root">
         <PageSection variant="default">
           <Title headingLevel="h1">{t('Policies')}</Title>
         </PageSection>
         <PageSection isFilled>
           <Bullseye><Spinner size="xl" /></Bullseye>
         </PageSection>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="rhcl-plugin-root">
       <PageSection variant="default">
         <Title headingLevel="h1">{t('Policies')}</Title>
       </PageSection>
@@ -181,6 +196,7 @@ const PolicyListPage: React.FC = () => {
               <Th>{t('Limit')}</Th>
               <Th>{t('Status')}</Th>
               <Th>{t('Condition')}</Th>
+              <Th aria-label={t('Actions')} />
             </Tr>
           </Thead>
           <Tbody>
@@ -195,15 +211,12 @@ const PolicyListPage: React.FC = () => {
                   ? `/connectivity-link/gateways/${row.targetRef.namespace || ns}/${row.targetRef.name}`
                   : `/connectivity-link/httproutes/${row.targetRef.namespace || ns}/${row.targetRef.name}`;
 
-              // RateLimitPolicy gets a plugin-owned detail page that
-              // visualises the actual limits. Other policy kinds still
-              // link to the native CR YAML page until they get their own.
-              const nameCell =
-                row.policyKind === 'RateLimitPolicy' ? (
-                  <Link to={`/connectivity-link/policies/ratelimit/${ns}/${name}`}>{name}</Link>
-                ) : (
-                  <a href={policyResourceURL(row.policyKind, ns, name)}>{name}</a>
-                );
+              // Every Kuadrant policy kind now ships its own operational
+              // detail page — policyResourceURL routes to the plugin
+              // for known kinds and to the native CR YAML page only as a
+              // last resort (e.g. a runtime-discovered policy CRD that
+              // doesn't have a dedicated renderer yet).
+              const nameCell = <Link to={policyResourceURL(row.policyKind, ns, name)}>{name}</Link>;
 
               const { scope, limit } = describePolicyRow(row);
 
@@ -229,11 +242,39 @@ const PolicyListPage: React.FC = () => {
                   <Td>
                     {overridden ? (
                       <Label color="orange">{t('Overridden')}</Label>
-                    ) : isConditionTrue(conditions, 'Enforced') ? (
-                      <Label color="green">{t('Enforced')}</Label>
-                    ) : (
-                      <Label color="grey">{t('Accepted')}</Label>
-                    )}
+                    ) : (() => {
+                      const enf = getEnforcementState(conditions);
+                      if (enf === 'fully') {
+                        return <Label color="green">{t('Enforced')}</Label>;
+                      }
+                      if (enf === 'partially') {
+                        return (
+                          <Tooltip
+                            content={
+                              row.targetRef.kind === 'Gateway'
+                                ? t(
+                                    'Applies only to routes attached to {{target}} that do not declare their own policy of this kind. Routes with a more-specific policy override the gateway default (Gateway API GEP-713 defaults semantics).',
+                                    { target: row.targetRef.name },
+                                  )
+                                : t(
+                                    'Some of the attached resources already have a more-specific policy that overrides this one.',
+                                  )
+                            }
+                          >
+                            <Label color="blue">{t('Partial')}</Label>
+                          </Tooltip>
+                        );
+                      }
+                      return <Label color="grey">{t('Accepted')}</Label>;
+                    })()}
+                  </Td>
+                  <Td isActionCell>
+                    <ResourceActionsMenu
+                      gvk={POLICY_ROW_GVK[row.policyKind]}
+                      namespace={ns}
+                      name={name}
+                      listHref="/connectivity-link/policies"
+                    />
                   </Td>
                 </Tr>
               );
@@ -241,7 +282,7 @@ const PolicyListPage: React.FC = () => {
           </Tbody>
         </Table>
       </PageSection>
-    </>
+    </div>
   );
 };
 

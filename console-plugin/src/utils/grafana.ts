@@ -14,9 +14,11 @@ import {
   useK8sWatchResource,
   K8sResourceCommon,
 } from '@openshift-console/dynamic-plugin-sdk';
+import { usePluginConfig } from './pluginConfig';
 
-const GRAFANA_NS = 'rhcl-grafana';
-const GRAFANA_ROUTE = 'rhcl-grafana-route';
+const DEFAULT_GRAFANA_NS = 'rhcl-grafana';
+const DEFAULT_GRAFANA_ROUTE = 'rhcl-grafana-route';
+const DEFAULT_DASHBOARD_PREFIX = 'rhcl-';
 
 interface RouteResource extends K8sResourceCommon {
   spec?: { host?: string };
@@ -26,13 +28,19 @@ export type GrafanaDashboard =
   | 'api-overview'
   | 'api-consumers'
   | 'authorino'
-  | 'limitador';
+  | 'limitador'
+  | 'api-costs';
 
-const DASHBOARD_UIDS: Record<GrafanaDashboard, string> = {
-  'api-overview': 'rhcl-api-overview',
-  'api-consumers': 'rhcl-api-consumers',
-  authorino: 'rhcl-authorino',
-  limitador: 'rhcl-limitador',
+// Suffix per dashboard kind. Combined with the configurable prefix
+// (default "rhcl-") to form the dashboard UID — so an admin who imports
+// the same JSONs with a custom prefix can repoint the plugin by editing
+// just the ConfigMap rather than rebuilding the image.
+const DASHBOARD_SUFFIXES: Record<GrafanaDashboard, string> = {
+  'api-overview': 'api-overview',
+  'api-consumers': 'api-consumers',
+  authorino: 'authorino',
+  limitador: 'limitador',
+  'api-costs': 'api-costs',
 };
 
 /**
@@ -81,10 +89,17 @@ export function useGrafanaLink(
   dashboard: GrafanaDashboard,
   vars: GrafanaVars = {},
 ): GrafanaLink {
+  // Pull namespace/route/prefix overrides from the ConfigMap if present,
+  // fall back to the role's defaults otherwise.
+  const { config } = usePluginConfig();
+  const namespace = config.grafanaNamespace || DEFAULT_GRAFANA_NS;
+  const routeName = config.grafanaRouteName || DEFAULT_GRAFANA_ROUTE;
+  const prefix = config.grafanaDashboardPrefix ?? DEFAULT_DASHBOARD_PREFIX;
+
   const [route, loaded, loadError] = useK8sWatchResource<RouteResource>({
     groupVersionKind: { group: 'route.openshift.io', version: 'v1', kind: 'Route' },
-    namespace: GRAFANA_NS,
-    name: GRAFANA_ROUTE,
+    namespace,
+    name: routeName,
     isList: false,
   });
 
@@ -97,7 +112,7 @@ export function useGrafanaLink(
     return { url: null, loading: false, available: false };
   }
 
-  const uid = DASHBOARD_UIDS[dashboard];
+  const uid = `${prefix}${DASHBOARD_SUFFIXES[dashboard]}`;
   const query = buildVarQuery(vars);
   const url = `https://${host}/d/${uid}/${uid}${query ? `?${query}` : ''}`;
 

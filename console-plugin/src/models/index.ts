@@ -151,7 +151,26 @@ const POLICY_KIND_TO_GVK: Record<string, K8sGroupVersionKind> = {
   TLSPolicy: TLSPolicyGVK,
 };
 
+// URL segment per kind for the plugin's operational policy pages. Falls
+// back to the kind name lowercased for any policy discovered at runtime
+// that doesn't have a dedicated route yet.
+const POLICY_KIND_TO_PLUGIN_SLUG: Record<string, string> = {
+  AuthPolicy: 'auth',
+  RateLimitPolicy: 'ratelimit',
+  TokenRateLimitPolicy: 'tokenratelimit',
+  DNSPolicy: 'dns',
+  TLSPolicy: 'tls',
+};
+
+/**
+ * Plugin URL for the operational detail page of a policy. Used by every
+ * widget that wants "click → operational policy view" (overview,
+ * attachment view, list page, plans card). When the kind has no
+ * dedicated plugin page, falls back to the native Console CR detail.
+ */
 export function policyResourceURL(policyKind: string, namespace: string, name: string): string {
+  const slug = POLICY_KIND_TO_PLUGIN_SLUG[policyKind];
+  if (slug) return `/connectivity-link/policies/${slug}/${namespace}/${name}`;
   const gvk = POLICY_KIND_TO_GVK[policyKind];
   if (!gvk) return '#';
   return `/k8s/ns/${namespace}/${gvk.group}~${gvk.version}~${gvk.kind}/${name}`;

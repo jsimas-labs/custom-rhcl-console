@@ -34,6 +34,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { APIKeyGVK } from '../../models';
 import { APIKey, getAPIKeyPhase } from '../../types';
+import ResourceActionsMenu from '../common/ResourceActionsMenu';
+import '../../styles/plugin-glass.css';
 
 /**
  * Cluster-wide API Keys list. Mirrors what the APIKeysTable on the
@@ -62,6 +64,14 @@ const APIKeysListPage: React.FC = () => {
     groupVersionKind: APIKeyGVK,
     isList: true,
   });
+  // Track keys that have an Approve/Reject request in flight. Used to
+  // disable the row's action buttons and switch them to a spinner so the
+  // operator gets immediate visual feedback — the watch can take a
+  // second to reflect the new status, and a non-responsive button is
+  // indistinguishable from a broken one.
+  const [pendingActions, setPendingActions] = React.useState<Record<string, true>>({});
+  const isActionPending = (key: APIKey): boolean =>
+    !!pendingActions[`${key.metadata?.namespace || ''}/${key.metadata?.name || ''}`];
   // Approval = create Secret + patch APIKey status. Both verbs need access.
   // We check the broader of the two (Secret create) since that's the one a
   // viewer typically lacks.
@@ -144,8 +154,8 @@ const APIKeysListPage: React.FC = () => {
     const apiName = key.spec.apiProductRef?.name || 'api';
     const userId = key.spec.requestedBy?.userId || 'unknown';
     // Stable enough to survive re-runs without colliding — re-clicking
-    // approve recreates with the same name and the PATCH below 409s, which
-    // we treat as "already approved".
+    // approve recreates with the same name and the API returns 409,
+    // which we silently treat as "already approved".
     const secretName = `apikey-${apiName}-${userId}-${key.metadata?.uid?.slice(0, 8) || 'manual'}`;
     const body = {
       apiVersion: 'v1',
@@ -167,25 +177,52 @@ const APIKeysListPage: React.FC = () => {
       type: 'Opaque',
       stringData: { api_key: generateApiKey() },
     };
-    const resp = await consoleFetch(
-      `/api/kubernetes/api/v1/namespaces/${ns}/secrets`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
-    );
-    if (resp.status === 409) return; // already approved, idempotent
-    if (!resp.ok) throw new Error(`Secret create failed: ${resp.status} ${await resp.text()}`);
+    // `consoleFetch` rejects on non-2xx, so we have to catch the AlreadyExists
+    // case explicitly (otherwise a re-click of Approve surfaces a scary error
+    // alert even though the Secret is exactly the state we wanted — and worse,
+    // throwing here means we never reach `patchAPIKeyStatus`, so any APIKey
+    // that was approved by an older buggy build of this plugin stays Pending
+    // forever).
+    //
+    // Match permissively: the k8s API returns the human-readable
+    // "secrets \"foo\" already exists" message, but some SDK versions also
+    // expose a numeric `.code` on the rejected error.
+    try {
+      await consoleFetch(
+        `/api/kubernetes/api/v1/namespaces/${ns}/secrets`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+      );
+    } catch (e) {
+      const msg = (e instanceof Error ? e.message : String(e)).toLowerCase();
+      const code = (e as { code?: unknown }).code;
+      if (
+        code === 409 ||
+        msg.includes('409') ||
+        msg.includes('already exists') ||
+        msg.includes('alreadyexists')
+      ) {
+        return; // already approved, idempotent — fall through to status patch
+      }
+      throw e;
+    }
   }
 
   async function patchAPIKeyStatus(key: APIKey, action: 'Approved' | 'Rejected') {
     const ns = key.metadata?.namespace || '';
     const name = key.metadata?.name || '';
     const now = new Date().toISOString();
+    // `getAPIKeyPhase` reads `type === 'Approved' | 'Rejected'` with
+    // `status === 'True'` — so we have to write the condition with the
+    // *action* as the type, not 'Ready'. The previous shape (`type: 'Ready'`
+    // + `reason: 'Approved'`) was silently ignored and the row stayed
+    // Pending in the UI even though the cluster had accepted the patch.
     const status = {
       phase: action,
       conditions: [
         {
-          type: 'Ready',
-          status: action === 'Approved' ? 'True' : 'False',
-          reason: action === 'Approved' ? 'Approved' : 'Rejected',
+          type: action,
+          status: 'True',
+          reason: action,
           message:
             action === 'Approved'
               ? `Approved by ${reviewer} via custom-rhcl-console`
@@ -194,7 +231,7 @@ const APIKeysListPage: React.FC = () => {
         },
       ],
     };
-    const resp = await consoleFetch(
+    await consoleFetch(
       `/api/kubernetes/apis/${APIKeyGVK.group}/${APIKeyGVK.version}/namespaces/${ns}/apikeys/${name}/status`,
       {
         method: 'PATCH',
@@ -202,10 +239,11 @@ const APIKeysListPage: React.FC = () => {
         body: JSON.stringify({ status }),
       },
     );
-    if (!resp.ok) throw new Error(`APIKey status patch failed: ${resp.status} ${await resp.text()}`);
   }
 
   const handleAction = async (key: APIKey, action: 'Approved' | 'Rejected') => {
+    const keyId = `${key.metadata?.namespace || ''}/${key.metadata?.name || ''}`;
+    setPendingActions((prev) => ({ ...prev, [keyId]: true }));
     try {
       if (action === 'Approved') {
         await createApiKeySecret(key);
@@ -218,6 +256,15 @@ const APIKeysListPage: React.FC = () => {
       // eslint-disable-next-line no-console
       console.error(`Failed to ${action.toLowerCase()} ${key.metadata?.name}:`, e);
       alert(`Failed to ${action.toLowerCase()}: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      // Clear the spinner. The k8sWatch will re-render with the new phase
+      // (Approved/Rejected) shortly after and the row's buttons disappear
+      // because `isPending` flips false.
+      setPendingActions((prev) => {
+        const next = { ...prev };
+        delete next[keyId];
+        return next;
+      });
     }
   };
 
@@ -230,7 +277,7 @@ const APIKeysListPage: React.FC = () => {
   }
 
   return (
-    <>
+    <div className="rhcl-plugin-root">
       <PageSection variant="default">
         <Title headingLevel="h1">{t('API Keys')}</Title>
         <p style={{ marginTop: 4, color: 'var(--pf-t--global--color--nonstatus--gray--default)' }}>
@@ -321,6 +368,7 @@ const APIKeysListPage: React.FC = () => {
                     <Th>{t('Phase')}</Th>
                     <Th>{t('Created')}</Th>
                     <Th>{t('Actions')}</Th>
+                    <Th aria-label={t('Actions')} />
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -366,6 +414,7 @@ const APIKeysListPage: React.FC = () => {
                                 <ActionButton
                                   kind="primary"
                                   disabled={!canApprove}
+                                  isLoading={isActionPending(key)}
                                   tooltipWhenDisabled={t('You do not have permission to approve API keys')}
                                   onClick={() => handleAction(key, 'Approved')}
                                   label={t('Approve')}
@@ -375,6 +424,7 @@ const APIKeysListPage: React.FC = () => {
                                 <ActionButton
                                   kind="danger"
                                   disabled={!canApprove}
+                                  isLoading={isActionPending(key)}
                                   tooltipWhenDisabled={t('You do not have permission to reject API keys')}
                                   onClick={() => handleAction(key, 'Rejected')}
                                   label={t('Reject')}
@@ -382,6 +432,14 @@ const APIKeysListPage: React.FC = () => {
                               </FlexItem>
                             </Flex>
                           )}
+                        </Td>
+                        <Td isActionCell>
+                          <ResourceActionsMenu
+                            gvk={APIKeyGVK}
+                            namespace={ns}
+                            name={key.metadata?.name || ''}
+                            listHref="/connectivity-link/api-keys"
+                          />
                         </Td>
                       </Tr>
                     );
@@ -392,7 +450,7 @@ const APIKeysListPage: React.FC = () => {
           </CardBody>
         </Card>
       </PageSection>
-    </>
+    </div>
   );
 };
 
@@ -402,9 +460,16 @@ const ActionButton: React.FC<{
   tooltipWhenDisabled: string;
   label: string;
   onClick: () => void;
-}> = ({ kind, disabled, tooltipWhenDisabled, label, onClick }) => {
+  isLoading?: boolean;
+}> = ({ kind, disabled, tooltipWhenDisabled, label, onClick, isLoading }) => {
   const btn = (
-    <Button variant={kind} size="sm" isDisabled={disabled} onClick={disabled ? undefined : onClick}>
+    <Button
+      variant={kind}
+      size="sm"
+      isDisabled={disabled || isLoading}
+      isLoading={isLoading}
+      onClick={disabled || isLoading ? undefined : onClick}
+    >
       {label}
     </Button>
   );
