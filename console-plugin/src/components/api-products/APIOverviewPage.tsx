@@ -23,7 +23,9 @@ import {
   DescriptionListDescription,
   Flex,
   FlexItem,
+  Button,
 } from '@patternfly/react-core';
+import { PlusCircleIcon } from '@patternfly/react-icons';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import { useTranslation } from 'react-i18next';
@@ -239,6 +241,16 @@ const APIOverviewContent: React.FC<{
               />
             </FlexItem>
           )}
+          {/* Same "Create API" CTA the list page offers, mirrored here so
+              an operator drilled into an API's detail can spin up a
+              sibling without bouncing back to /api-products. */}
+          <FlexItem>
+            <Link to="/connectivity-link/create-api">
+              <Button variant="primary" icon={<PlusCircleIcon />}>
+                {t('Create API')}
+              </Button>
+            </Link>
+          </FlexItem>
         </Flex>
         {tags.length > 0 && (
           <Flex style={{ marginTop: 8 }} spaceItems={{ default: 'spaceItemsSm' }}>

@@ -2,6 +2,9 @@ import * as React from 'react';
 import {
   Modal,
   ModalVariant,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
   Tabs,
   Tab,
   TabTitleText,
@@ -9,8 +12,6 @@ import {
   Alert,
   Content,
   TextArea,
-  Flex,
-  FlexItem,
 } from '@patternfly/react-core';
 import {
   k8sCreate,
@@ -168,6 +169,19 @@ const ResourceEditorModal: React.FC<ResourceEditorModalProps> = ({
       setError(t('metadata.name is required.'));
       return;
     }
+    // Catch unedited placeholders early. Without this the API server
+    // rejects them with a 422 whose message ("name must consist of
+    // lower case alphanumeric characters, '-', ...") reads as gibberish
+    // to anyone who didn't realise the starter YAML had `<slots>` for
+    // them to fill in. Faster + clearer to flag it client-side.
+    if (/<[^>]+>/.test(yaml)) {
+      setError(
+        t(
+          'The YAML still contains placeholder tokens like `<name>` — replace them with real values before submitting.',
+        ),
+      );
+      return;
+    }
     // On Edit: block renames (API server refuses these on most Kinds
     // anyway, and the error surface there is worse than this one).
     if (mode === 'edit' && initialResource?.metadata?.name && identity.name !== initialResource.metadata.name) {
@@ -175,6 +189,9 @@ const ResourceEditorModal: React.FC<ResourceEditorModalProps> = ({
       return;
     }
 
+    // The Console runtime re-exports `k8sCreate` as an alias for
+    // `k8sCreateResource` (options-object signature), so this is the
+    // correct call shape — the same one the API Publishing wizard uses.
     const model = {
       apiVersion: gvk.version,
       apiGroup: gvk.group,
@@ -206,7 +223,20 @@ const ResourceEditorModal: React.FC<ResourceEditorModalProps> = ({
         history.push(redirectTo);
       }
     } catch (e) {
-      setError((e as Error)?.message || String(e));
+      // Log the raw error to the browser console — the API server's
+      // message field is what the operator needs, but the SDK sometimes
+      // hands us just a Response-shaped object with a JSON body one
+      // level down. `console.error(e)` gives the DevTools inspector
+      // something to expand.
+      // eslint-disable-next-line no-console
+      console.error('[ResourceEditorModal] k8s write failed', e);
+      const err = e as { message?: string; json?: { message?: string }; body?: string };
+      setError(
+        err?.json?.message ||
+        err?.message ||
+        err?.body ||
+        String(e),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -220,75 +250,85 @@ const ResourceEditorModal: React.FC<ResourceEditorModalProps> = ({
   return (
     <Modal
       variant={ModalVariant.large}
-      title={title}
       isOpen={isOpen}
       onClose={submitting ? undefined : onClose}
+      aria-label={title}
     >
-      <Tabs activeKey={tab} onSelect={(_e, k) => setTab(k as 'form' | 'yaml')}>
-        <Tab eventKey="form" title={<TabTitleText>{t('Form')}</TabTitleText>}>
-          <div style={{ padding: 16 }}>
-            <Content>
-              <p>
-                {t(
-                  'A guided form for {{kind}} is not available yet. Use the YAML tab — the starter template already has every required field.',
-                  { kind: gvk.kind },
-                )}
-              </p>
-            </Content>
-            <div style={{ marginTop: 12 }}>
-              <Button variant="link" isInline onClick={() => setTab('yaml')}>
-                {t('Switch to YAML')}
-              </Button>
-            </div>
-          </div>
-        </Tab>
-        <Tab eventKey="yaml" title={<TabTitleText>{t('YAML')}</TabTitleText>}>
-          <div style={{ padding: 16 }}>
-            <TextArea
-              aria-label={t('YAML editor')}
-              value={yaml}
-              onChange={(_e, v) => setYaml(v)}
-              rows={22}
-              resizeOrientation="vertical"
-              style={{
-                fontFamily:
-                  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                fontSize: 13,
-              }}
-              spellCheck={false}
-            />
-            {hint && (
-              <Content style={{ marginTop: 8 }}>
-                <p style={{ fontSize: 12, color: 'var(--pf-v5-global--Color--200)' }}>{hint}</p>
+      <ModalHeader title={title} />
+      <ModalBody>
+        <Tabs activeKey={tab} onSelect={(_e, k) => setTab(k as 'form' | 'yaml')}>
+          <Tab eventKey="form" title={<TabTitleText>{t('Form')}</TabTitleText>}>
+            <div style={{ padding: 16 }}>
+              <Content>
+                <p>
+                  {t(
+                    'A guided form for {{kind}} is not available yet. Use the YAML tab — the starter template already has every required field.',
+                    { kind: gvk.kind },
+                  )}
+                </p>
               </Content>
-            )}
-          </div>
-        </Tab>
-      </Tabs>
+              <div style={{ marginTop: 12 }}>
+                <Button variant="link" isInline onClick={() => setTab('yaml')}>
+                  {t('Switch to YAML')}
+                </Button>
+              </div>
+            </div>
+          </Tab>
+          <Tab eventKey="yaml" title={<TabTitleText>{t('YAML')}</TabTitleText>}>
+            <div style={{ padding: 16 }}>
+              <TextArea
+                aria-label={t('YAML editor')}
+                value={yaml}
+                onChange={(_e, v) => setYaml(v)}
+                rows={22}
+                resizeOrientation="vertical"
+                style={{
+                  fontFamily:
+                    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                  fontSize: 13,
+                }}
+                spellCheck={false}
+              />
+              {hint && (
+                <Content style={{ marginTop: 8 }}>
+                  <p style={{ fontSize: 12, color: 'var(--pf-v5-global--Color--200)' }}>{hint}</p>
+                </Content>
+              )}
+            </div>
+          </Tab>
+        </Tabs>
 
-      {error && (
-        <Alert
-          variant="danger"
-          title={mode === 'create' ? t('Create failed') : t('Save failed')}
-          isInline
-          style={{ marginTop: 12 }}
-        >
-          {error}
-        </Alert>
-      )}
-
-      <Flex justifyContent={{ default: 'justifyContentFlexEnd' }} style={{ marginTop: 16, gap: 8 }}>
-        <FlexItem>
-          <Button variant="link" onClick={onClose} isDisabled={submitting}>
-            {t('Cancel')}
-          </Button>
-        </FlexItem>
-        <FlexItem>
-          <Button variant="primary" onClick={submit} isLoading={submitting} isDisabled={submitting}>
-            {mode === 'create' ? t('Create') : t('Save')}
-          </Button>
-        </FlexItem>
-      </Flex>
+        {error && (
+          <Alert
+            variant="danger"
+            title={mode === 'create' ? t('Create failed') : t('Save failed')}
+            isInline
+            style={{ marginTop: 12 }}
+          >
+            {/* Preserve line breaks so a multi-line API-server error
+                (e.g. field validation lists) stays readable. */}
+            <pre
+              style={{
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                margin: 0,
+                fontFamily: 'inherit',
+                fontSize: 'inherit',
+              }}
+            >
+              {error}
+            </pre>
+          </Alert>
+        )}
+      </ModalBody>
+      <ModalFooter>
+        <Button variant="primary" onClick={submit} isLoading={submitting} isDisabled={submitting}>
+          {mode === 'create' ? t('Create') : t('Save')}
+        </Button>
+        <Button variant="link" onClick={onClose} isDisabled={submitting}>
+          {t('Cancel')}
+        </Button>
+      </ModalFooter>
     </Modal>
   );
 };
