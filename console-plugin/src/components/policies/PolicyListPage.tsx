@@ -2,7 +2,7 @@ import * as React from 'react';
 // SDK 4.21 federates react-router 5.3; in v5 `Link` lives only in
 // `react-router-dom`. Keep this until we move back to SDK 4.22+.
 import { Link } from 'react-router-dom';
-import { PageSection, Title, Spinner, Bullseye, Label, Tooltip } from '@patternfly/react-core';
+import { PageSection, Title, Spinner, Bullseye, Label, Tooltip, Flex, FlexItem } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +30,7 @@ import { primaryTargetRef } from '../../utils/policyTargets';
 import StatusLabel from '../common/StatusLabel';
 import FilterToolbar from '../common/FilterToolbar';
 import ResourceActionsMenu from '../common/ResourceActionsMenu';
+import CreateResourceMenu from '../common/CreateResourceMenu';
 import { ratesToRpm } from './RateLimitVisualizer';
 import { RateLimit } from '../../types';
 import '../../styles/plugin-glass.css';
@@ -49,6 +50,16 @@ const POLICY_ROW_GVK: Record<PolicyKind, { group?: string; version: string; kind
   TokenRateLimitPolicy: TokenRateLimitPolicyGVK,
   DNSPolicy: DNSPolicyGVK,
   TLSPolicy: TLSPolicyGVK,
+};
+
+// Plural REST names used by k8sUpdate when the row's Edit action opens
+// ResourceEditorModal. Kept next to the GVK map — one lookup per row.
+const POLICY_ROW_PLURAL: Record<PolicyKind, string> = {
+  AuthPolicy: 'authpolicies',
+  RateLimitPolicy: 'ratelimitpolicies',
+  TokenRateLimitPolicy: 'tokenratelimitpolicies',
+  DNSPolicy: 'dnspolicies',
+  TLSPolicy: 'tlspolicies',
 };
 
 const PolicyListPage: React.FC = () => {
@@ -165,7 +176,18 @@ const PolicyListPage: React.FC = () => {
   return (
     <div className="rhcl-plugin-root">
       <PageSection variant="default">
-        <Title headingLevel="h1">{t('Policies')}</Title>
+        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+          <FlexItem>
+            <Title headingLevel="h1">{t('Policies')}</Title>
+          </FlexItem>
+          <FlexItem>
+            <CreateResourceMenu
+              kinds={['AuthPolicy', 'RateLimitPolicy', 'TokenRateLimitPolicy', 'DNSPolicy', 'TLSPolicy']}
+              defaultNamespace={selectedNamespace}
+              buttonLabel={t('Create policy')}
+            />
+          </FlexItem>
+        </Flex>
       </PageSection>
       <PageSection>
         <FilterToolbar
@@ -274,6 +296,8 @@ const PolicyListPage: React.FC = () => {
                       namespace={ns}
                       name={name}
                       listHref="/connectivity-link/policies"
+                      resource={row.policy}
+                      plural={POLICY_ROW_PLURAL[row.policyKind]}
                     />
                   </Td>
                 </Tr>

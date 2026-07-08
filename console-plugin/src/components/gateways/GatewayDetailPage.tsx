@@ -149,6 +149,8 @@ const GatewayDetailPage: React.FC = () => {
               namespace={ns || ''}
               name={name || ''}
               listHref="/connectivity-link/gateways"
+              resource={gateway}
+              plural="gateways"
             />
           </div>
         </div>

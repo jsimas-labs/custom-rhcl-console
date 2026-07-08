@@ -132,6 +132,8 @@ const TokenRateLimitPolicyDetailPage: React.FC = () => {
               namespace={ns || ''}
               name={name || ''}
               listHref="/connectivity-link/policies"
+              resource={policy}
+              plural="tokenratelimitpolicies"
             />
           }
         />

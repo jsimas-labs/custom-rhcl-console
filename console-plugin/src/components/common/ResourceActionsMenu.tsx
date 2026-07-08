@@ -13,7 +13,8 @@ import {
 import { EllipsisVIcon } from '@patternfly/react-icons';
 import { useHistory } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { k8sDelete } from '@openshift-console/dynamic-plugin-sdk';
+import { k8sDelete, K8sResourceCommon } from '@openshift-console/dynamic-plugin-sdk';
+import ResourceEditorModal from './ResourceEditorModal';
 
 /**
  * Pluralize a Kind into its REST resource name the way the API server
@@ -59,14 +60,30 @@ export interface ResourceActionsMenuProps {
   /** Object name. */
   name: string;
   /**
-   * Path Console uses to route the native YAML editor. Set to the
-   * empty string for cluster-scoped kinds; the underlying URL then
-   * drops the `/ns/<ns>` segment.
+   * Path the plugin uses after a successful Delete. Points back to the
+   * resource's list page so the operator isn't left staring at a 404
+   * on a now-gone detail route.
    */
   listHref: string;
   /** Optional: override the display label for the resource in the
    * delete confirmation copy. Defaults to `{kind} {name}`. */
   displayName?: string;
+  /**
+   * When provided, the "Edit" menu item opens `ResourceEditorModal` in
+   * edit mode with this resource pre-loaded. When absent, "Edit" falls
+   * back to a link into Console's native YAML editor — same behaviour
+   * we shipped originally, kept for callers that haven't been migrated
+   * yet.
+   *
+   * We plumb the resource itself (not just a fetch trigger) because
+   * the callers already have it in state — a second fetch just to fill
+   * a modal would race their own watch and occasionally show stale
+   * data.
+   */
+  resource?: K8sResourceCommon;
+  /** Plural REST name (`httproutes`, `authpolicies`). Required only if
+   *  `resource` is passed — the modal needs it for k8sUpdate. */
+  plural?: string;
 }
 
 const ResourceActionsMenu: React.FC<ResourceActionsMenuProps> = ({
@@ -75,12 +92,15 @@ const ResourceActionsMenu: React.FC<ResourceActionsMenuProps> = ({
   name,
   listHref,
   displayName,
+  resource,
+  plural,
 }) => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
   const history = useHistory();
   const [open, setOpen] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [editing, setEditing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   // Console's URL scheme: `/k8s/ns/<ns>/<group>~<version>~<kind>/<name>/yaml`
@@ -140,9 +160,15 @@ const ResourceActionsMenu: React.FC<ResourceActionsMenuProps> = ({
         )}
       >
         <DropdownList>
-          <DropdownItem key="yaml" component="a" href={yamlHref}>
-            {t('Edit YAML')}
-          </DropdownItem>
+          {resource && plural ? (
+            <DropdownItem key="edit" onClick={() => setEditing(true)}>
+              {t('Edit')}
+            </DropdownItem>
+          ) : (
+            <DropdownItem key="edit-yaml" component="a" href={yamlHref}>
+              {t('Edit YAML')}
+            </DropdownItem>
+          )}
           <DropdownItem
             key="delete"
             onClick={() => setConfirming(true)}
@@ -152,6 +178,18 @@ const ResourceActionsMenu: React.FC<ResourceActionsMenuProps> = ({
           </DropdownItem>
         </DropdownList>
       </Dropdown>
+
+      {resource && plural && (
+        <ResourceEditorModal
+          isOpen={editing}
+          mode="edit"
+          gvk={gvk}
+          plural={plural}
+          namespaced={!!namespace}
+          initialResource={resource}
+          onClose={() => setEditing(false)}
+        />
+      )}
 
       <Modal
         variant={ModalVariant.small}

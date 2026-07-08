@@ -2,7 +2,7 @@ import * as React from 'react';
 // SDK 4.21 federates react-router 5.3; in v5 `Link` lives only in
 // `react-router-dom`. Keep this until we move back to SDK 4.22+.
 import { Link } from 'react-router-dom';
-import { PageSection, Title, Spinner, Bullseye } from '@patternfly/react-core';
+import { PageSection, Title, Spinner, Bullseye, Flex, FlexItem } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useTranslation } from 'react-i18next';
 import { useResourceWithRBAC } from '../../hooks/useResourceWithRBAC';
@@ -16,6 +16,7 @@ import HostnameCell from '../common/HostnameCell';
 import EmptyRBACState from '../common/EmptyRBACState';
 import FilterToolbar from '../common/FilterToolbar';
 import ResourceActionsMenu from '../common/ResourceActionsMenu';
+import CreateResourceMenu from '../common/CreateResourceMenu';
 import '../../styles/plugin-glass.css';
 
 const GatewayListPage: React.FC = () => {
@@ -105,7 +106,14 @@ const GatewayListPage: React.FC = () => {
   return (
     <div className="rhcl-plugin-root">
       <PageSection variant="default">
-        <Title headingLevel="h1">{t('Gateways')}</Title>
+        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+          <FlexItem>
+            <Title headingLevel="h1">{t('Gateways')}</Title>
+          </FlexItem>
+          <FlexItem>
+            <CreateResourceMenu kinds={['Gateway']} defaultNamespace={selectedNamespace || 'openshift-ingress'} />
+          </FlexItem>
+        </Flex>
       </PageSection>
       <PageSection>
         <FilterToolbar
@@ -170,6 +178,8 @@ const GatewayRow: React.FC<{ gateway: Gateway }> = ({ gateway }) => {
           namespace={ns}
           name={name}
           listHref="/connectivity-link/gateways"
+          resource={gateway}
+          plural="gateways"
         />
       </Td>
     </Tr>

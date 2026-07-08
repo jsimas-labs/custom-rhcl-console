@@ -2,7 +2,7 @@ import * as React from 'react';
 // SDK 4.21 federates react-router 5.3; in v5 `Link` lives only in
 // `react-router-dom`. Keep this until we move back to SDK 4.22+.
 import { Link } from 'react-router-dom';
-import { PageSection, Title, Spinner, Bullseye, Label } from '@patternfly/react-core';
+import { PageSection, Title, Spinner, Bullseye, Label, Flex, FlexItem } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { K8sResourceCommon } from '@openshift-console/dynamic-plugin-sdk';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ import StatusLabel from '../common/StatusLabel';
 import EmptyRBACState from '../common/EmptyRBACState';
 import FilterToolbar from '../common/FilterToolbar';
 import ResourceActionsMenu from '../common/ResourceActionsMenu';
+import CreateResourceMenu from '../common/CreateResourceMenu';
 import '../../styles/plugin-glass.css';
 
 /**
@@ -109,7 +110,14 @@ const GRPCRouteListPage: React.FC = () => {
   return (
     <div className="rhcl-plugin-root">
       <PageSection variant="default">
-        <Title headingLevel="h1">{t('GRPCRoutes')}</Title>
+        <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+          <FlexItem>
+            <Title headingLevel="h1">{t('GRPCRoutes')}</Title>
+          </FlexItem>
+          <FlexItem>
+            <CreateResourceMenu kinds={['GRPCRoute']} defaultNamespace={selectedNamespace} />
+          </FlexItem>
+        </Flex>
       </PageSection>
       <PageSection>
         <FilterToolbar
@@ -191,6 +199,8 @@ const GRPCRouteListPage: React.FC = () => {
                       namespace={ns}
                       name={name}
                       listHref="/connectivity-link/grpcroutes"
+                      resource={r}
+                      plural="grpcroutes"
                     />
                   </Td>
                 </Tr>

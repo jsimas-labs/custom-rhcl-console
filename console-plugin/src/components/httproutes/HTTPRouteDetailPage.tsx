@@ -122,6 +122,8 @@ const HTTPRouteDetailPage: React.FC = () => {
               namespace={ns || ''}
               name={name || ''}
               listHref="/connectivity-link/httproutes"
+              resource={route}
+              plural="httproutes"
             />
           </div>
         </div>
