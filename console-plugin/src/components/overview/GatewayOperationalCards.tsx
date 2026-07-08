@@ -102,7 +102,6 @@ export const GatewayOperationalCards: React.FC<Props> = ({ gateways }) => {
                     style={{
                       padding: 12,
                       borderRadius: 6,
-                      backgroundColor: 'var(--pf-v5-global--BackgroundColor--200)',
                       border: '1px solid var(--pf-v5-global--BorderColor--100)',
                     }}
                   >
