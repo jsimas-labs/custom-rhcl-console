@@ -125,12 +125,32 @@ const ResourceActionsMenu: React.FC<ResourceActionsMenuProps> = ({
     setError(null);
     setDeleting(true);
     try {
+      // Two things had this failing on policies:
+      //
+      //   1. K8sModel actually requires `abbr`, `label`, `labelPlural`,
+      //      and `namespaced` on top of what we were passing. The SDK
+      //      quietly derives the wrong REST URL when they're missing,
+      //      which surfaced as an opaque 404 in the UI even though the
+      //      DELETE hits the API server successfully via curl. Same
+      //      shape the API-publishing wizard uses for k8sCreate — copy
+      //      it here so Create/Edit/Delete all round-trip identically.
+      //
+      //   2. `plural` was always derived by `pluralizeKind(gvk.kind)`
+      //      even when the caller passed a known-good plural via prop.
+      //      Prefer the prop when it's set — same source of truth Edit
+      //      reads from, so the two actions can never disagree on the
+      //      target URL.
+      const pluralName = plural || pluralizeKind(gvk.kind);
       await k8sDelete({
         model: {
           apiGroup: gvk.group,
           apiVersion: gvk.version,
           kind: gvk.kind,
-          plural: pluralizeKind(gvk.kind),
+          plural: pluralName,
+          abbr: gvk.kind.slice(0, 3).toUpperCase(),
+          label: gvk.kind,
+          labelPlural: pluralName,
+          namespaced: !!namespace,
         } as never,
         resource: {
           apiVersion: gvk.group ? `${gvk.group}/${gvk.version}` : gvk.version,
@@ -141,7 +161,10 @@ const ResourceActionsMenu: React.FC<ResourceActionsMenuProps> = ({
       setConfirming(false);
       history.push(listHref);
     } catch (err) {
-      setError((err as Error)?.message || String(err));
+      // eslint-disable-next-line no-console
+      console.error('[ResourceActionsMenu] delete failed', err);
+      const e = err as { message?: string; json?: { message?: string }; body?: string };
+      setError(e?.json?.message || e?.message || e?.body || String(err));
     } finally {
       setDeleting(false);
     }
