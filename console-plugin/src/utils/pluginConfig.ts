@@ -42,6 +42,13 @@
  *     # plugin hides the monetary column and only shows raw usage.
  *     costCurrency: BRL
  *     costPricing: '{"gold":{"tokens_per_1k":0.10,"calls_per_1k":0.05}, …}'
+ *     # Absolute URL of the DNS Prober service (companion Quarkus app
+ *     # under rhcl-lab/apps/backend/dns-prober). When set, the DNS
+ *     # Troubleshooting page's resolver table shows LIVE cross-resolver
+ *     # data from the prober instead of the simulated-status fallback.
+ *     # Unset ⇒ the page renders a small callout with a link to the
+ *     # install docs.
+ *     dnsProberUrl: https://dns-prober-rhcl-apps.apps.example.com
  *
  * Every field is optional — the hooks fall back to the original
  * hard-coded values when the ConfigMap is missing or a field is unset,
@@ -84,6 +91,19 @@ export interface PluginConfig {
    * ConfigMap values are strings — the hook parses the number.
    */
   costBudget?: string | number;
+  /**
+   * Absolute base URL of an external DNS Prober service (the small
+   * Quarkus companion from `rhcl-lab/apps/backend/dns-prober`). When
+   * set, the DNS Troubleshooting page swaps its "Simulated" resolver
+   * table for real cross-resolver probes from that service. When unset
+   * the table renders a fallback callout explaining how to enable it.
+   *
+   * The plugin itself never bundles a prober — DNS lookups don't work
+   * from a browser sandbox. A production install runs the prober in
+   * the same cluster (route CORS-enabled for the console origin) and
+   * points this field at the route.
+   */
+  dnsProberUrl?: string;
 }
 
 /**

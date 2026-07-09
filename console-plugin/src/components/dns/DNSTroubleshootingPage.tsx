@@ -33,6 +33,7 @@ import DNSDiagnosticsTable from './DNSDiagnosticsTable';
 import DNSResolverTable from './DNSResolverTable';
 import DNSAdvancedSection from './DNSAdvancedSection';
 import ResourceEditorModal from '../common/ResourceEditorModal';
+import { useDnsProber } from './useDnsProber';
 import { starterFor } from '../common/starterTemplates';
 import { DNSPolicyGVK } from '../../models';
 import { STATUS_META } from './types';
@@ -66,6 +67,10 @@ const DNSTroubleshootingPage: React.FC = () => {
   const [createOpen, setCreateOpen] = React.useState(false);
 
   const flow = useDnsTroubleshooting(selectedHostname);
+  // Live prober lookups when the pluginConfig ConfigMap carries a
+  // dnsProberUrl. Falls through to the "install the companion" empty
+  // state otherwise. See DNSResolverTable for the three-state matrix.
+  const prober = useDnsProber(flow.hostname || null);
 
   // Starter YAML for the Create DNSPolicy empty-state CTA — pre-fills
   // `spec.targetRef.name` with the Gateway we already know needs the
@@ -280,7 +285,11 @@ const DNSTroubleshootingPage: React.FC = () => {
       </PageSection>
 
       <PageSection>
-        <DNSResolverTable resolvers={flow.resolvers} />
+        <DNSResolverTable
+          simulatedResolvers={flow.resolvers}
+          prober={prober}
+          hostname={flow.hostname}
+        />
       </PageSection>
 
       <PageSection>
