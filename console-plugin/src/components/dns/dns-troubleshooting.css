@@ -1,0 +1,240 @@
+/*
+ * DNS Troubleshooting page — visual language.
+ *
+ * Card row for the flow diagram: fixed-width cards + chevron connectors.
+ * The cards' top border picks up the status colour so a red step reads
+ * immediately even without looking at the badge, and the connectors
+ * blend the two adjacent statuses (worst-wins) so the arrow "points at"
+ * the broken step.
+ *
+ * Scoped under `.rhcl-dns-page` so nothing here bleeds into other
+ * plugin pages that happen to also live under `.rhcl-plugin-root`.
+ */
+
+.rhcl-dns-page .rhcl-dns-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.rhcl-dns-page .rhcl-dns-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rhcl-dns-page .rhcl-dns-hostname-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.rhcl-dns-page .rhcl-dns-hostname-picker select {
+  padding: 4px 8px;
+  min-width: 260px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: 4px;
+  background: var(--pf-t--global--background--color--floating--default);
+  color: var(--pf-t--global--color--regular);
+}
+
+/* --------- Status legend --------- */
+.rhcl-dns-page .rhcl-dns-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 8px 0 4px;
+  font-size: 12px;
+}
+.rhcl-dns-page .rhcl-dns-legend > span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* --------- Flow diagram --------- */
+.rhcl-dns-page .rhcl-dns-flow {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(180px, 1fr);
+  align-items: stretch;
+  gap: 0;
+  margin: 12px 0 24px;
+  overflow-x: auto;
+}
+.rhcl-dns-page .rhcl-dns-step {
+  border-top: 3px solid transparent;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--pf-t--global--background--color--floating--default);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms;
+}
+.rhcl-dns-page .rhcl-dns-step:hover {
+  transform: translateY(-1px);
+}
+.rhcl-dns-page .rhcl-dns-step-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.rhcl-dns-page .rhcl-dns-step-index {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--pf-v5-global--Color--200);
+  font-weight: 600;
+}
+.rhcl-dns-page .rhcl-dns-step-badge {
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.rhcl-dns-page .rhcl-dns-step-resource {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pf-t--global--color--regular);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rhcl-dns-page .rhcl-dns-step-namespace {
+  font-size: 11px;
+  color: var(--pf-v5-global--Color--200);
+}
+.rhcl-dns-page .rhcl-dns-step-summary {
+  font-size: 12px;
+  margin: 6px 0 0;
+  color: var(--pf-v5-global--Color--200);
+  line-height: 1.4;
+}
+.rhcl-dns-page .rhcl-dns-step-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+.rhcl-dns-page .rhcl-dns-step-details dt {
+  color: var(--pf-v5-global--Color--200);
+  font-weight: normal;
+}
+.rhcl-dns-page .rhcl-dns-step-details dd {
+  margin: 0;
+  color: var(--pf-t--global--color--regular);
+}
+.rhcl-dns-page .rhcl-dns-step-details dd.is-muted {
+  color: var(--pf-v5-global--Color--200);
+  font-style: italic;
+}
+.rhcl-dns-page .rhcl-dns-step-more {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.rhcl-dns-page .rhcl-dns-step-more a {
+  color: var(--pf-t--global--color--brand--default);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.rhcl-dns-page .rhcl-dns-flow-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  min-width: 24px;
+}
+
+/* On narrow viewports, stack cards vertically and rotate the arrows. */
+@media (max-width: 1000px) {
+  .rhcl-dns-page .rhcl-dns-flow {
+    grid-auto-flow: row;
+    grid-auto-columns: unset;
+    grid-template-columns: 1fr;
+  }
+  .rhcl-dns-page .rhcl-dns-flow-arrow {
+    transform: rotate(90deg);
+    padding: 4px 0;
+  }
+}
+
+/* --------- Diagnosis panel headline --------- */
+.rhcl-dns-page .rhcl-dns-diagnosis-heading {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+/* --------- Timeline --------- */
+.rhcl-dns-page .rhcl-dns-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  position: relative;
+}
+.rhcl-dns-page .rhcl-dns-timeline::before {
+  content: '';
+  position: absolute;
+  left: 61px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--pf-t--global--border--color--default);
+}
+.rhcl-dns-page .rhcl-dns-timeline li {
+  display: grid;
+  grid-template-columns: 56px 16px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.rhcl-dns-page .rhcl-dns-timeline-time {
+  font-size: 12px;
+  color: var(--pf-v5-global--Color--200);
+  text-align: right;
+  padding-top: 2px;
+}
+.rhcl-dns-page .rhcl-dns-timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 6px;
+  border: 2px solid var(--pf-t--global--background--color--floating--default);
+  z-index: 1;
+}
+.rhcl-dns-page .rhcl-dns-timeline-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.rhcl-dns-page .rhcl-dns-timeline-detail {
+  font-size: 12px;
+  color: var(--pf-v5-global--Color--200);
+  margin-top: 2px;
+}
+
+/* --------- Overall status banner --------- */
+.rhcl-dns-page .rhcl-dns-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  background: var(--pf-t--global--background--color--floating--default);
+}
+.rhcl-dns-page .rhcl-dns-status-banner.is-healthy {
+  border-color: color-mix(in srgb, var(--pf-t--global--color--status--success--default) 40%, transparent);
+}
+.rhcl-dns-page .rhcl-dns-status-banner.is-failing {
+  border-color: color-mix(in srgb, var(--pf-t--global--color--status--danger--default) 40%, transparent);
+}

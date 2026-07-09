@@ -62,12 +62,33 @@
     }
   },
   {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-dns-troubleshooting",
+      "name": "%plugin__custom-rhcl-console~DNS Troubleshooting%",
+      "href": "/connectivity-link/dns/troubleshooting",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-policies"
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/dns/troubleshooting",
+      "component": {
+        "$codeRef": "DNSTroubleshootingPage"
+      }
+    }
+  },
+  {
     "type": "console.navigation/separator",
     "properties": {
       "id": "connectivity-link-separator",
       "perspective": "admin",
       "section": "connectivity-link",
-      "insertAfter": "connectivity-link-policies"
+      "insertAfter": "connectivity-link-dns-troubleshooting"
     }
   },
   {
