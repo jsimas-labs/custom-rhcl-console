@@ -507,15 +507,33 @@ export function useDnsTroubleshooting(selectedHostname: string | null): DnsFlow 
     const overall = worstStatus(steps);
     const primaryFailure = pickPrimaryFailure(steps);
 
-    // ------- Events -> timeline -------
+    // ------- Timeline -------
+    //
+    // Two data sources merged in chronological order:
+    //
+    //   1. `Event` objects with involvedObject pointing at any of the
+    //      three CRs. This is the "loud" path — human-readable messages
+    //      the controllers emit on important transitions.
+    //   2. `status.conditions[].lastTransitionTime` on the three CRs.
+    //      Fallback for quiet clusters where Kuadrant / Gateway API
+    //      controllers don't spam Events but do carry accurate
+    //      condition timestamps. Without this the timeline sat empty
+    //      most of the time and the operator got a "reconciliation is
+    //      idle" placeholder even when the CRs had clear history.
+    //
+    // Duplicates between the two sources (an Event AND a matching
+    // condition transition emitted seconds apart) are fine — the
+    // timeline is short enough that a couple of near-duplicate rows are
+    // still readable, and de-duping heuristically would risk hiding a
+    // real signal.
     const relevantEvents: DnsTimelineEvent[] = [];
     for (const e of events || []) {
       const obj = e.involvedObject;
       if (!obj) continue;
       const matchesDnsPolicy =
         obj.kind === 'DNSPolicy' &&
-        (obj.name === dnsPolicy?.metadata?.name ||
-          obj.namespace === dnsPolicy?.metadata?.namespace);
+        obj.name === dnsPolicy?.metadata?.name &&
+        obj.namespace === dnsPolicy?.metadata?.namespace;
       const matchesGateway =
         obj.kind === 'Gateway' &&
         obj.name === gatewayName &&
@@ -534,6 +552,46 @@ export function useDnsTroubleshooting(selectedHostname: string | null): DnsFlow 
         status: e.type === 'Warning' ? 'warning' : 'healthy',
       });
     }
+
+    // Fallback: derive rows from status.conditions[].lastTransitionTime.
+    // Reads the *terminal* condition (Accepted / Enforced / Programmed
+    // / ResolvedRefs) — the transitions the operator actually needs to
+    // see. False conditions get a 'failing' dot; True conditions get
+    // 'healthy'. Missing lastTransitionTime rows are skipped.
+    const pushCondition = (
+      objectKind: string,
+      objectName: string | undefined,
+      conds: Array<{ type?: string; status?: string; reason?: string; message?: string; lastTransitionTime?: string }> | undefined,
+      condType: string,
+    ) => {
+      if (!objectName || !conds) return;
+      const c = conds.find((x) => x.type === condType);
+      if (!c?.lastTransitionTime) return;
+      const ok = c.status === 'True';
+      relevantEvents.push({
+        when: c.lastTransitionTime,
+        title: `${objectKind} ${objectName} ${condType} → ${c.status}`,
+        detail: c.message || c.reason,
+        status: ok ? 'healthy' : 'failing',
+      });
+    };
+    pushCondition('DNSPolicy', dnsPolicy?.metadata?.name, dnsPolicy?.status?.conditions, 'Accepted');
+    pushCondition('DNSPolicy', dnsPolicy?.metadata?.name, dnsPolicy?.status?.conditions, 'Enforced');
+    pushCondition('Gateway', gatewayName, gateway?.status?.conditions, 'Accepted');
+    pushCondition('Gateway', gatewayName, gateway?.status?.conditions, 'Programmed');
+    pushCondition(
+      'HTTPRoute',
+      httpRoute?.metadata?.name,
+      httpRoute?.status?.parents?.[0]?.conditions,
+      'Accepted',
+    );
+    pushCondition(
+      'HTTPRoute',
+      httpRoute?.metadata?.name,
+      httpRoute?.status?.parents?.[0]?.conditions,
+      'ResolvedRefs',
+    );
+
     relevantEvents.sort((a, b) => a.when.localeCompare(b.when));
 
     // ------- Checks table -------

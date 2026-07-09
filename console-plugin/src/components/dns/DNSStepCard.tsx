@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
+import { Tooltip } from '@patternfly/react-core';
 import {
   CheckCircleIcon,
   ClockIcon,
@@ -10,6 +11,19 @@ import {
   ArrowRightIcon,
 } from '@patternfly/react-icons';
 import { DnsStep, STATUS_META, StepStatus } from './types';
+
+/**
+ * Renders `text` inside a PatternFly Tooltip. Kept as a helper so
+ * every card field that could overflow reads the same way. PF's
+ * tooltip appears near the cursor (unlike the native `title` attribute
+ * which shows after a ~2s delay in most browsers) and picks up the
+ * plugin's theme automatically.
+ */
+const TruncatedText: React.FC<{ text: string; className?: string }> = ({ text, className }) => (
+  <Tooltip content={text} position="top">
+    <span className={className}>{text}</span>
+  </Tooltip>
+);
 
 /**
  * One card in the horizontal DNS flow. Icons + colour come from
@@ -62,26 +76,32 @@ const DNSStepCard: React.FC<Props> = ({ step, index }) => {
         </span>
       </div>
       {step.resourceName && (
-        <div className="rhcl-dns-step-resource" title={step.resourceName}>
-          {step.resourceName}
+        <div className="rhcl-dns-step-resource">
+          <TruncatedText text={step.resourceName} />
         </div>
       )}
       {step.namespace && (
-        <div className="rhcl-dns-step-namespace">{step.namespace}</div>
+        <div className="rhcl-dns-step-namespace">
+          <TruncatedText text={step.namespace} />
+        </div>
       )}
       <p className="rhcl-dns-step-summary">{step.summary}</p>
       {step.details.length > 0 && (
         <dl className="rhcl-dns-step-details">
           {step.details.map((d) => (
             <React.Fragment key={d.label}>
-              <dt title={d.label}>{d.label}</dt>
+              <dt>
+                <TruncatedText text={d.label} />
+              </dt>
               {/*
                 Long values (ELB DNS names, hosted-zone IDs, hostnames)
-                get truncated by the CSS ellipsis; the title attribute
-                exposes the full string on native hover so no info is
-                lost, just visually tidied.
+                clip with CSS ellipsis; the PatternFly Tooltip surfaces
+                the full string on hover so no info is lost, just
+                visually tidied.
               */}
-              <dd className={d.muted ? 'is-muted' : undefined} title={d.value}>{d.value}</dd>
+              <dd className={d.muted ? 'is-muted' : undefined}>
+                <TruncatedText text={d.value} />
+              </dd>
             </React.Fragment>
           ))}
         </dl>
