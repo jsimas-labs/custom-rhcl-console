@@ -60,6 +60,45 @@ interface FormValues {
   window: string;
   scope: RateLimitScope;
   scopeValue: string;
+  /** Free-text override for `counters[0].expression`. See the
+   *  RateLimitPolicyForm sister for the "scope is a guide, this is what
+   *  actually ships" rationale. */
+  counterExpression: string;
+  /** Free-text override for `when[0].predicate`. */
+  whenPredicate: string;
+}
+
+/** Same preset table the sister form uses — see RateLimitPolicyForm
+ *  for the pattern. Duplicated so this form stays self-contained. */
+function presetForScope(
+  scope: RateLimitScope,
+  scopeValue: string,
+): { counter: string; when: string } | null {
+  switch (scope) {
+    case 'per-consumer':
+      return { counter: 'auth.identity.userid', when: '' };
+    case 'global':
+      return { counter: '', when: '' };
+    case 'per-ip':
+      return { counter: 'source.remote_address', when: '' };
+    case 'per-ip-range': {
+      const cidr = scopeValue || '0.0.0.0/0';
+      return {
+        counter: 'source.remote_address',
+        when: `source.remote_address.split(":")[0].startsWith("${cidr.split('/')[0]}")`,
+      };
+    }
+    case 'per-header': {
+      const header = scopeValue || 'X-Tenant';
+      return { counter: `request.headers.${header.toLowerCase()}`, when: '' };
+    }
+    case 'per-endpoint': {
+      const path = scopeValue || '/';
+      return { counter: '', when: `request.path.startsWith("${path}")` };
+    }
+    case 'per-plan':
+      return null;
+  }
 }
 
 const WINDOW_OPTIONS: Array<{ v: string; l: string }> = [
@@ -112,6 +151,8 @@ function extractValues(obj: Shape | null): FormValues | null {
   const firstLimit = limits ? Object.values(limits)[0] : undefined;
   const firstRate = firstLimit?.rates?.[0];
   const { scope, scopeValue } = detectScope(limits);
+  const counterExpression = scope === 'per-plan' ? '' : firstLimit?.counters?.[0]?.expression || '';
+  const whenPredicate = scope === 'per-plan' ? '' : firstLimit?.when?.[0]?.predicate || '';
   return {
     name: meta.name || '',
     namespace: meta.namespace || '',
@@ -121,52 +162,36 @@ function extractValues(obj: Shape | null): FormValues | null {
     window: firstRate?.window ?? '1m',
     scope,
     scopeValue,
+    counterExpression,
+    whenPredicate,
   };
 }
 
 function buildLimits(v: FormValues): LimitsMap {
   const rates = [{ limit: v.limit, window: v.window }];
-  switch (v.scope) {
-    case 'per-consumer':
-      return { default: { rates, counters: [{ expression: 'auth.identity.userid' }] } };
-    case 'global':
-      return { default: { rates } };
-    case 'per-ip':
-      return { default: { rates, counters: [{ expression: 'source.remote_address' }] } };
-    case 'per-ip-range': {
-      const cidr = v.scopeValue || '0.0.0.0/0';
-      return {
-        default: {
-          rates,
-          counters: [{ expression: 'source.remote_address' }],
-          when: [{ predicate: `source.remote_address.split(":")[0].startsWith("${cidr.split('/')[0]}")` }],
-        },
-      };
-    }
-    case 'per-header': {
-      const header = v.scopeValue || 'X-Tenant';
-      return {
-        default: { rates, counters: [{ expression: `request.headers.${header.toLowerCase()}` }] },
-      };
-    }
-    case 'per-endpoint': {
-      const path = v.scopeValue || '/';
-      const key = `limit-${path.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'root'}`;
-      return { [key]: { rates, when: [{ predicate: `request.path.startsWith("${path}")` }] } };
-    }
-    case 'per-plan':
-      return {
-        gold: { rates, when: [{ predicate: 'auth.identity.plan == "gold"' }] },
-        silver: {
-          rates: [{ limit: Math.max(1, Math.floor(v.limit / 2)), window: v.window }],
-          when: [{ predicate: 'auth.identity.plan == "silver"' }],
-        },
-        bronze: {
-          rates: [{ limit: Math.max(1, Math.floor(v.limit / 4)), window: v.window }],
-          when: [{ predicate: 'auth.identity.plan == "bronze"' }],
-        },
-      };
+  if (v.scope === 'per-plan') {
+    return {
+      gold: { rates, when: [{ predicate: 'auth.identity.plan == "gold"' }] },
+      silver: {
+        rates: [{ limit: Math.max(1, Math.floor(v.limit / 2)), window: v.window }],
+        when: [{ predicate: 'auth.identity.plan == "silver"' }],
+      },
+      bronze: {
+        rates: [{ limit: Math.max(1, Math.floor(v.limit / 4)), window: v.window }],
+        when: [{ predicate: 'auth.identity.plan == "bronze"' }],
+      },
+    };
   }
+  const counter = v.counterExpression.trim();
+  const when = v.whenPredicate.trim();
+  const limitBody: LimitsMap[string] = { rates };
+  if (counter) limitBody.counters = [{ expression: counter }];
+  if (when) limitBody.when = [{ predicate: when }];
+  const key =
+    v.scope === 'per-endpoint' && v.scopeValue
+      ? `limit-${v.scopeValue.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'root'}`
+      : 'default';
+  return { [key]: limitBody };
 }
 
 function toManifest(v: FormValues): Shape {
@@ -255,10 +280,19 @@ const TokenRateLimitPolicyForm: React.FC<Props> = ({ yaml, onChange }) => {
         </FormSelect>
       </FormGroup>
 
-      <FormGroup label="Scope">
+      <FormGroup label="Scope (preset)">
         <FormSelect
           value={values.scope}
-          onChange={(_e, v) => update({ scope: v as RateLimitScope, scopeValue: '' })}
+          onChange={(_e, v) => {
+            const nextScope = v as RateLimitScope;
+            const preset = presetForScope(nextScope, '');
+            update({
+              scope: nextScope,
+              scopeValue: '',
+              counterExpression: preset ? preset.counter : '',
+              whenPredicate: preset ? preset.when : '',
+            });
+          }}
         >
           {RATE_LIMIT_SCOPES.map((s) => (
             <FormSelectOption key={s.id} value={s.id} label={s.label} />
@@ -269,6 +303,11 @@ const TokenRateLimitPolicyForm: React.FC<Props> = ({ yaml, onChange }) => {
             {scopeOpt.hint}
           </div>
         )}
+        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pf-v5-global--Color--200)' }}>
+          The scope populates the fields below with a starting expression. Whatever ends up in
+          those fields is what gets written to the CR — edit them if the preset isn&apos;t
+          quite right.
+        </div>
       </FormGroup>
 
       {scopeOpt?.needsValue && (
@@ -280,13 +319,57 @@ const TokenRateLimitPolicyForm: React.FC<Props> = ({ yaml, onChange }) => {
         >
           <TextInput
             value={values.scopeValue}
-            onChange={(_e, v) => update({ scopeValue: v })}
+            onChange={(_e, v) => {
+              const preset = presetForScope(values.scope, v);
+              update({
+                scopeValue: v,
+                counterExpression: preset ? preset.counter : values.counterExpression,
+                whenPredicate: preset ? preset.when : values.whenPredicate,
+              });
+            }}
             placeholder={
               scopeOpt.needsValue === 'cidr' ? '10.0.0.0/24' :
               scopeOpt.needsValue === 'header' ? 'X-Tenant' : '/api/v1/chat/completions'
             }
           />
         </FormGroup>
+      )}
+
+      {values.scope !== 'per-plan' && (
+        <>
+          <Content>
+            <h4 style={{ margin: '4px 0' }}>Counter and predicate (actual CR values)</h4>
+          </Content>
+          <FormGroup label="Counter attribute (counters[0].expression)">
+            <TextInput
+              value={values.counterExpression}
+              onChange={(_e, v) => update({ counterExpression: v })}
+              placeholder="auth.identity.userid"
+              style={{ fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, monospace' }}
+            />
+            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--pf-v5-global--Color--200)' }}>
+              CEL expression Limitador reads to bucket token usage. Blank means a single shared
+              token budget.
+            </div>
+          </FormGroup>
+          <FormGroup label="When predicate (when[0].predicate)">
+            <TextInput
+              value={values.whenPredicate}
+              onChange={(_e, v) => update({ whenPredicate: v })}
+              placeholder='request.path.startsWith("/api/v1/chat")'
+              style={{ fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, monospace' }}
+            />
+            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--pf-v5-global--Color--200)' }}>
+              Optional CEL gating this limit. Blank means the limit applies to every request.
+            </div>
+          </FormGroup>
+        </>
+      )}
+      {values.scope === 'per-plan' && (
+        <Alert variant="info" isInline title="Per-plan is a fan-out">
+          Per-plan emits gold / silver / bronze named limits with plan-specific `when` predicates.
+          Edit the YAML tab to tune per-tier budgets.
+        </Alert>
       )}
 
       <Alert variant="info" isInline title="Requires a token counter">
