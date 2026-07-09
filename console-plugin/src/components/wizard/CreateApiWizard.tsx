@@ -5,10 +5,16 @@ import {
   Spinner,
   Alert,
   ClipboardCopy,
+  Modal,
+  ModalVariant,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
 } from '@patternfly/react-core';
 import {
   CheckCircleIcon,
   DownloadIcon,
+  EyeIcon,
   RocketIcon,
 } from '@patternfly/react-icons';
 import { k8sCreate } from '@openshift-console/dynamic-plugin-sdk';
@@ -312,11 +318,18 @@ const ReviewStep: React.FC<{
   onDownload: () => void;
 }> = ({ state, resources, onDownload }) => {
   const pct = readinessPct(state);
+  // View YAML in-place: operators kept asking to double-check the manifest
+  // before hitting Create, and having "Download" as the only option meant
+  // switching apps to read a couple of lines. The modal renders the same
+  // `toYaml(resources)` output the download uses, with a ClipboardCopy for
+  // paste-into-terminal workflows and readable monospace formatting.
+  const [showYaml, setShowYaml] = React.useState(false);
+  const yaml = React.useMemo(() => toYaml(resources), [resources]);
   return (
     <>
       <StepHeader
         title="Review and create"
-        what="Everything below is generated from your answers. Download the YAML for GitOps, or create the resources directly."
+        what="Everything below is generated from your answers. Preview the YAML, download it for GitOps, or create the resources directly."
       />
       <div className="rhcl-wiz-two-col">
         <div>
@@ -343,7 +356,10 @@ const ReviewStep: React.FC<{
               still create now and add policies later.
             </Alert>
           )}
-          <div style={{ marginTop: 16 }}>
+          <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+            <Button variant="secondary" icon={<EyeIcon />} onClick={() => setShowYaml(true)}>
+              View YAML
+            </Button>
             <Button variant="secondary" icon={<DownloadIcon />} onClick={onDownload}>
               Download YAML
             </Button>
@@ -351,6 +367,43 @@ const ReviewStep: React.FC<{
         </div>
         <ArchDiagram state={state} />
       </div>
+
+      <Modal
+        variant={ModalVariant.large}
+        isOpen={showYaml}
+        onClose={() => setShowYaml(false)}
+        aria-label="Generated YAML"
+      >
+        <ModalHeader title={`Generated YAML (${resources.length} resources)`} />
+        <ModalBody>
+          {/*
+            ClipboardCopy in "expansion" variant renders a scrolling
+            read-only editor + a copy button. Preferred over a plain
+            <pre> because the operator's typical next move is "copy this
+            into a terminal / gist / PR" and having the button colocated
+            saves a select-all + cmd-c dance.
+          */}
+          <ClipboardCopy
+            isReadOnly
+            hoverTip="Copy YAML"
+            clickTip="Copied"
+            variant="expansion"
+            isExpanded
+            isCode
+            style={{ fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, monospace', fontSize: 12 }}
+          >
+            {yaml}
+          </ClipboardCopy>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" icon={<DownloadIcon />} onClick={onDownload}>
+            Download YAML
+          </Button>
+          <Button variant="link" onClick={() => setShowYaml(false)}>
+            Close
+          </Button>
+        </ModalFooter>
+      </Modal>
     </>
   );
 };

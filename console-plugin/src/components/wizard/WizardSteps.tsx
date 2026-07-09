@@ -1,12 +1,28 @@
 import * as React from 'react';
 import {
+  Alert,
   Button,
   ExpandableSection,
   Label,
   Radio,
   Switch,
+  Modal as PfModal,
+  ModalVariant as PfModalVariant,
+  ModalHeader as PfModalHeader,
+  ModalBody as PfModalBody,
+  ModalFooter as PfModalFooter,
 } from '@patternfly/react-core';
-import { PlusCircleIcon, TrashIcon, CheckCircleIcon } from '@patternfly/react-icons';
+import {
+  PlusCircleIcon,
+  TrashIcon,
+  CheckCircleIcon,
+  BanIcon,
+  LockIcon,
+  InfoCircleIcon,
+  UploadIcon,
+} from '@patternfly/react-icons';
+import { load as yamlLoad } from 'js-yaml';
+import { BulletTone } from './wizardTypes';
 import {
   K8sResourceCommon,
   useK8sWatchResource,
@@ -20,6 +36,8 @@ import {
   newRouteId,
   AuthMode,
   defaultState,
+  RATE_LIMIT_SCOPES,
+  RateLimitScope,
 } from './wizardTypes';
 import { ArchDiagram, StepHeader, Field } from './WizardShared';
 
@@ -28,6 +46,36 @@ type Patch = (p: Partial<WizardState>) => void;
 // ---------------------------------------------------------------------------
 // Step 1 — Template
 // ---------------------------------------------------------------------------
+/**
+ * Bullet icon selector for the template-card list. Splitting this out
+ * of the map keeps the JSX in TemplateStep readable and makes the
+ * mapping "tone → icon + color" easy to tweak in one place. Sizes and
+ * colors are inline (not CSS classes) so the visual weight stays the
+ * same the moment the file is loaded, without a paint flash.
+ */
+const BulletIcon: React.FC<{ tone: BulletTone }> = ({ tone }) => {
+  const style: React.CSSProperties = { fontSize: 11 };
+  switch (tone) {
+    case 'no':
+      // Muted red-orange — the same tone the operational health cards
+      // use for "not enforced", so opt-outs read consistently across the
+      // plugin (opt-out here ≠ error, but the semantic weight matches).
+      return <BanIcon style={{ ...style, color: 'var(--pf-t--global--color--status--danger--default)' }} />;
+    case 'internal':
+      // A padlock reads as "closed for the outside world" without any
+      // negative charge — "Internal only" isn't an opt-out, it's a
+      // deliberate scope.
+      return <LockIcon style={{ ...style, color: 'var(--pf-t--global--color--status--info--default)' }} />;
+    case 'info':
+      // Neutral notes ("All steps editable") — no positive/negative
+      // charge, just context.
+      return <InfoCircleIcon style={{ ...style, color: 'var(--pf-t--global--color--nonstatus--gray--default)' }} />;
+    case 'yes':
+    default:
+      return <CheckCircleIcon style={{ ...style, color: 'var(--pf-t--global--color--brand--default)' }} />;
+  }
+};
+
 export const TemplateStep: React.FC<{ state: WizardState; patch: Patch }> = ({ state, patch }) => {
   const pick = (t: TemplateDef) => {
     // Re-picking resets prior template's choices: apply on top of a
@@ -35,12 +83,23 @@ export const TemplateStep: React.FC<{ state: WizardState; patch: Patch }> = ({ s
     const base = defaultState();
     patch({ ...base, ...t.patch, template: t.id, namespace: state.namespace });
   };
+  const [showImport, setShowImport] = React.useState(false);
   return (
     <>
       <StepHeader
         title="What kind of API are you publishing?"
         what="Start from a scenario — the wizard pre-fills security, policies and discoverability. You can change everything later."
       />
+      {/* Bootstrap-from-OpenAPI escape hatch: an operator who already
+          owns the API spec shouldn't have to re-type displayName /
+          version / routes into the wizard. The importer parses the
+          spec once and patches the wizard state; the user then continues
+          from Backend as usual. */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <Button variant="link" icon={<UploadIcon />} onClick={() => setShowImport(true)}>
+          Import from OpenAPI spec
+        </Button>
+      </div>
       <div className="rhcl-wiz-template-grid">
         {TEMPLATES.map((t) => (
           <button
@@ -52,8 +111,8 @@ export const TemplateStep: React.FC<{ state: WizardState; patch: Patch }> = ({ s
             <div className="rhcl-wiz-template-title">{t.title}</div>
             <ul className="rhcl-wiz-template-bullets">
               {t.bullets.map((b) => (
-                <li key={b}>
-                  <CheckCircleIcon style={{ fontSize: 11, color: 'var(--pf-t--global--color--brand--default)' }} /> {b}
+                <li key={b.text}>
+                  <BulletIcon tone={b.tone || 'yes'} /> {b.text}
                 </li>
               ))}
             </ul>
@@ -62,9 +121,175 @@ export const TemplateStep: React.FC<{ state: WizardState; patch: Patch }> = ({ s
           </button>
         ))}
       </div>
+      <OpenApiImportModal
+        isOpen={showImport}
+        onClose={() => setShowImport(false)}
+        onApply={(p) => {
+          // Preserve namespace/template selection when importing on top;
+          // spec-derived fields overwrite everything else.
+          patch({ ...defaultState(), ...p, namespace: state.namespace });
+          setShowImport(false);
+        }}
+      />
     </>
   );
 };
+
+/**
+ * OpenAPI 3 → WizardState bootstrapper. Accepts JSON or YAML pasted
+ * into a textarea; parses defensively (no crash if the spec is missing
+ * fields we care about); emits a Partial<WizardState> patch the caller
+ * merges. What we pull out:
+ *
+ *   info.title       → displayName + serviceName (kebab-case)
+ *   info.version     → version
+ *   info.description → description
+ *   servers[0].url   → hostname (URL host part) and openApiUrl base
+ *   paths + methods  → routes[] (one per (path, method) pair)
+ *   tags             → tags[]
+ *
+ * We do NOT try to derive Kubernetes Service/port from `servers` — that
+ * URL is what a public consumer would call, not the in-cluster service
+ * name. The user still fills BackendStep by hand.
+ */
+const OpenApiImportModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onApply: (patch: Partial<WizardState>) => void;
+}> = ({ isOpen, onClose, onApply }) => {
+  const [text, setText] = React.useState('');
+  const [error, setError] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setText('');
+    setError(null);
+  }, [isOpen]);
+
+  const apply = () => {
+    setError(null);
+    if (!text.trim()) {
+      setError('Paste an OpenAPI 3 spec (JSON or YAML).');
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = yamlLoad(text);
+    } catch (e) {
+      setError(`Parse error: ${(e as Error).message}`);
+      return;
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      setError('The spec must be a JSON or YAML object.');
+      return;
+    }
+    const spec = parsed as OpenApiSpec;
+    if (!spec.openapi && !spec.swagger) {
+      setError('Missing `openapi` (or `swagger`) version field — is this an OpenAPI document?');
+      return;
+    }
+    const info = spec.info || {};
+    const title = info.title || '';
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40);
+    const serverUrl = spec.servers?.[0]?.url || '';
+    let hostname = '';
+    try {
+      // Servers can be URL templates ({basePath}); fall back gracefully.
+      hostname = serverUrl ? new URL(serverUrl.replace(/\{[^}]+\}/g, '')).hostname : '';
+    } catch {
+      hostname = '';
+    }
+    const paths = spec.paths || {};
+    const rules: RouteRule[] = [];
+    for (const [path, item] of Object.entries(paths)) {
+      if (!item || typeof item !== 'object') continue;
+      for (const method of ['get', 'post', 'put', 'patch', 'delete', 'options', 'head']) {
+        if ((item as Record<string, unknown>)[method]) {
+          rules.push({
+            id: newRouteId(),
+            method: method.toUpperCase(),
+            path,
+            matchType: path.includes('{') ? 'PathPrefix' : 'Exact',
+          });
+        }
+      }
+      // Cap the surface — importing 200-endpoint specs verbatim would
+      // slow the wizard's re-render and rarely reflects what the
+      // operator actually wants to expose right now.
+      if (rules.length >= 25) break;
+    }
+    onApply({
+      displayName: title,
+      serviceName: slug,
+      description: info.description || '',
+      version: info.version || 'v1',
+      hostname,
+      openApiUrl: '',
+      tags: Array.isArray(spec.tags)
+        ? spec.tags.map((t) => t.name).filter((n): n is string => !!n)
+        : [],
+      routes: rules.length > 0 ? rules : [
+        { id: newRouteId(), method: 'ANY', path: '/', matchType: 'PathPrefix' },
+      ],
+    });
+  };
+
+  return (
+    <PfModal
+      variant={PfModalVariant.large}
+      isOpen={isOpen}
+      onClose={onClose}
+      aria-label="Import OpenAPI spec"
+    >
+      <PfModalHeader title="Import from OpenAPI spec" />
+      <PfModalBody>
+        <p style={{ fontSize: 13, marginBottom: 8, color: 'var(--pf-t--global--color--nonstatus--gray--default)' }}>
+          Paste an OpenAPI 3 document (JSON or YAML). The wizard fills in display name, version,
+          hostname, tags, and routes derived from the paths.
+        </p>
+        <textarea
+          className="rhcl-wiz-input"
+          style={{
+            width: '100%',
+            minHeight: 300,
+            fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, monospace',
+            fontSize: 12,
+          }}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={'openapi: 3.0.3\ninfo:\n  title: My API\n  version: 1.0.0\nservers:\n  - url: https://api.example.com\npaths:\n  /widgets:\n    get: { ... }'}
+          spellCheck={false}
+        />
+        {error && (
+          <Alert variant="danger" isInline title="Import failed" style={{ marginTop: 8 }}>
+            {error}
+          </Alert>
+        )}
+      </PfModalBody>
+      <PfModalFooter>
+        <Button variant="primary" onClick={apply}>Apply</Button>
+        <Button variant="link" onClick={onClose}>Cancel</Button>
+      </PfModalFooter>
+    </PfModal>
+  );
+};
+
+/** Minimal type covering the fields we actually read from the spec. */
+interface OpenApiSpec {
+  openapi?: string;
+  swagger?: string;
+  info?: {
+    title?: string;
+    description?: string;
+    version?: string;
+  };
+  servers?: Array<{ url?: string }>;
+  paths?: Record<string, unknown>;
+  tags?: Array<{ name?: string }>;
+}
 
 // ---------------------------------------------------------------------------
 // Step 2 — Backend
@@ -557,6 +782,53 @@ export const PoliciesStep: React.FC<{ state: WizardState; patch: Patch }> = ({ s
               <option value="1d">1 day</option>
             </select>
           </Field>
+          {/* Scope drives the CR's counters / when predicates. The
+              catalogue lives in wizardTypes.ts:RATE_LIMIT_SCOPES so
+              manifests.ts and the standalone RateLimitPolicy form can
+              reuse the same options + hints. */}
+          <Field
+            label="Scope"
+            hint={
+              RATE_LIMIT_SCOPES.find((s) => s.id === state.rateLimitScope)?.hint
+            }
+          >
+            <select
+              className="rhcl-wiz-select"
+              value={state.rateLimitScope}
+              onChange={(e) =>
+                patch({ rateLimitScope: e.target.value as RateLimitScope, rateLimitScopeValue: '' })
+              }
+            >
+              {RATE_LIMIT_SCOPES.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {(() => {
+            // Only IP-range / header / per-endpoint need a companion
+            // value (CIDR, header name, path prefix). Everything else
+            // reads state directly from the request context.
+            const opt = RATE_LIMIT_SCOPES.find((s) => s.id === state.rateLimitScope);
+            if (!opt?.needsValue) return null;
+            const labels: Record<Exclude<typeof opt.needsValue, undefined>, { label: string; placeholder: string }> = {
+              cidr: { label: 'CIDR', placeholder: '10.0.0.0/24' },
+              header: { label: 'Header name', placeholder: 'X-Tenant' },
+              path: { label: 'Path prefix', placeholder: '/api/v1/transfers' },
+            };
+            const meta = labels[opt.needsValue];
+            return (
+              <Field label={meta.label}>
+                <input
+                  className="rhcl-wiz-input"
+                  value={state.rateLimitScopeValue}
+                  placeholder={meta.placeholder}
+                  onChange={(e) => patch({ rateLimitScopeValue: e.target.value })}
+                />
+              </Field>
+            );
+          })()}
         </div>
       </ExpandableSection>
 

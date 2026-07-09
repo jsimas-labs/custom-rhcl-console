@@ -172,6 +172,103 @@ export function genAuthPolicy(s: WizardState): GeneratedResource | null {
   };
 }
 
+/**
+ * Build the `limits` map for a RateLimitPolicy from the wizard's
+ * scope + optional value. Each scope translates to a distinct shape:
+ *
+ *   - per-consumer  → counters keyed on `auth.identity.userid`
+ *   - global        → no counters (single bucket for the target)
+ *   - per-ip        → counters keyed on `source.remote_address`
+ *   - per-ip-range  → `when` predicate matching the CIDR + IP counter
+ *   - per-header    → counters keyed on the request header
+ *   - per-endpoint  → `when` predicate on `request.path` for the prefix
+ *   - per-plan      → multiple named limits, one per plan tier, each
+ *                     gated by a `when` predicate on `auth.identity.plan`
+ *
+ * The output slots into `spec.limits`. Keeping the mapping here (vs
+ * inline in the caller) means the wizard, the RateLimitPolicy form
+ * modal, and the review-YAML preview all read the same source of truth.
+ */
+function buildRateLimitLimits(s: WizardState): Record<string, unknown> {
+  const rates = [{ limit: s.rateLimit, window: s.rateWindow }];
+  switch (s.rateLimitScope) {
+    case 'per-consumer':
+      return {
+        default: {
+          rates,
+          counters: [{ expression: 'auth.identity.userid' }],
+        },
+      };
+    case 'global':
+      return {
+        default: { rates },
+      };
+    case 'per-ip':
+      return {
+        default: {
+          rates,
+          counters: [{ expression: 'source.remote_address' }],
+        },
+      };
+    case 'per-ip-range': {
+      const cidr = s.rateLimitScopeValue || '0.0.0.0/0';
+      return {
+        default: {
+          rates,
+          counters: [{ expression: 'source.remote_address' }],
+          when: [
+            {
+              // CEL: `source.remote_address` is a string like "10.0.0.5:53023",
+              // so we split the port off before matching. `.startsWith` on the
+              // CIDR base is a pragmatic approximation of subnet membership —
+              // exact match is via `ipMatch()` if Limitador ships the ext.
+              predicate: `source.remote_address.split(":")[0].startsWith("${cidr.split('/')[0]}")`,
+            },
+          ],
+        },
+      };
+    }
+    case 'per-header': {
+      const header = s.rateLimitScopeValue || 'X-Tenant';
+      return {
+        default: {
+          rates,
+          counters: [{ expression: `request.headers.${header.toLowerCase()}` }],
+        },
+      };
+    }
+    case 'per-endpoint': {
+      const path = s.rateLimitScopeValue || '/';
+      return {
+        [`limit-${path.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'root'}`]: {
+          rates,
+          when: [{ predicate: `request.path.startsWith("${path}")` }],
+        },
+      };
+    }
+    case 'per-plan':
+      // One named limit per common plan tier so the operator sees the
+      // shape and can rename / add tiers. Each is gated on
+      // `auth.identity.plan`. Limits inherit the same `rates` since the
+      // wizard only asks for one — customer can raise/lower per plan in
+      // the YAML tab after review.
+      return {
+        gold: {
+          rates,
+          when: [{ predicate: 'auth.identity.plan == "gold"' }],
+        },
+        silver: {
+          rates: [{ limit: Math.max(1, Math.floor(s.rateLimit / 2)), window: s.rateWindow }],
+          when: [{ predicate: 'auth.identity.plan == "silver"' }],
+        },
+        bronze: {
+          rates: [{ limit: Math.max(1, Math.floor(s.rateLimit / 4)), window: s.rateWindow }],
+          when: [{ predicate: 'auth.identity.plan == "bronze"' }],
+        },
+      };
+  }
+}
+
 export function genRateLimitPolicy(s: WizardState): GeneratedResource | null {
   if (!s.rateLimitEnabled || !s.serviceName) return null;
   const name = `${apiSlug(s)}-ratelimit`;
@@ -193,11 +290,7 @@ export function genRateLimitPolicy(s: WizardState): GeneratedResource | null {
           kind: 'HTTPRoute',
           name: `${apiSlug(s)}-route`,
         },
-        limits: {
-          default: {
-            rates: [{ limit: s.rateLimit, window: s.rateWindow }],
-          },
-        },
+        limits: buildRateLimitLimits(s),
       },
     },
   };

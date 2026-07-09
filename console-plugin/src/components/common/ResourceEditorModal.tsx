@@ -21,6 +21,8 @@ import {
 import { load as yamlLoad, dump as yamlDump } from 'js-yaml';
 import { useHistory } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import AuthPolicyForm from './forms/AuthPolicyForm';
+import RateLimitPolicyForm from './forms/RateLimitPolicyForm';
 
 /**
  * Shared Create / Edit modal for every Kubernetes Kind the plugin
@@ -131,7 +133,11 @@ const ResourceEditorModal: React.FC<ResourceEditorModalProps> = ({
     if (!isOpen) return;
     setError(null);
     setSubmitting(false);
-    setTab('yaml');
+    // Open on Form for Kinds we have a guided form for; leave YAML as
+    // the default for everything else so users of unformed Kinds don't
+    // stare at a "form not available yet" placeholder.
+    const hasForm = gvk.kind === 'AuthPolicy' || gvk.kind === 'RateLimitPolicy';
+    setTab(hasForm ? 'form' : 'yaml');
     if (mode === 'edit' && initialResource) {
       // Strip fields the API server owns/rejects on Update:
       //   status is subresource-managed, resourceVersion belongs to
@@ -258,21 +264,32 @@ const ResourceEditorModal: React.FC<ResourceEditorModalProps> = ({
       <ModalBody>
         <Tabs activeKey={tab} onSelect={(_e, k) => setTab(k as 'form' | 'yaml')}>
           <Tab eventKey="form" title={<TabTitleText>{t('Form')}</TabTitleText>}>
-            <div style={{ padding: 16 }}>
-              <Content>
-                <p>
-                  {t(
-                    'A guided form for {{kind}} is not available yet. Use the YAML tab — the starter template already has every required field.',
-                    { kind: gvk.kind },
-                  )}
-                </p>
-              </Content>
-              <div style={{ marginTop: 12 }}>
-                <Button variant="link" isInline onClick={() => setTab('yaml')}>
-                  {t('Switch to YAML')}
-                </Button>
+            {/* Kind-specific guided forms live in ./forms/. Each one
+                parses the current `yaml` on every render and pushes back
+                a serialised manifest via `onChange` — no separate form
+                state, so switching Form↔YAML never shows stale data.
+                Kinds without a form yet fall back to the placeholder. */}
+            {gvk.kind === 'AuthPolicy' ? (
+              <AuthPolicyForm yaml={yaml} onChange={setYaml} />
+            ) : gvk.kind === 'RateLimitPolicy' ? (
+              <RateLimitPolicyForm yaml={yaml} onChange={setYaml} />
+            ) : (
+              <div style={{ padding: 16 }}>
+                <Content>
+                  <p>
+                    {t(
+                      'A guided form for {{kind}} is not available yet. Use the YAML tab — the starter template already has every required field.',
+                      { kind: gvk.kind },
+                    )}
+                  </p>
+                </Content>
+                <div style={{ marginTop: 12 }}>
+                  <Button variant="link" isInline onClick={() => setTab('yaml')}>
+                    {t('Switch to YAML')}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </Tab>
           <Tab eventKey="yaml" title={<TabTitleText>{t('YAML')}</TabTitleText>}>
             <div style={{ padding: 16 }}>

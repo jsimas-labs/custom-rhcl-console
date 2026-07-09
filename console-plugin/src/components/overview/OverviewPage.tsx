@@ -32,6 +32,14 @@ import { usePolicyImpactRows } from '../../hooks/usePolicyImpactRows';
 import { useRouteTraffic } from '../../hooks/useRouteTraffic';
 import { useBackendHealth } from '../../hooks/useBackendHealth';
 import { useRecentEvents } from '../../hooks/useRecentEvents';
+import ResourceEditorModal from '../common/ResourceEditorModal';
+import { starterFor, SupportedKind } from '../common/starterTemplates';
+import {
+  GatewayGVK,
+  HTTPRouteGVK,
+  AuthPolicyGVK,
+  RateLimitPolicyGVK,
+} from '../../models';
 import '../../styles/plugin-glass.css';
 
 /**
@@ -81,15 +89,40 @@ const OverviewPage: React.FC = () => {
     return t('{{count}}m ago', { count: m });
   }, [now, t]);
 
-  const createActions = React.useMemo(
+  // What Overview's "Create" menu offers. `modal` entries open our
+  // ResourceEditorModal in create mode (same one the list pages use);
+  // `wizard` entries route into the guided API-publishing flow. The old
+  // shape linked into Console's `/k8s/.../~new` YAML editor, which
+  // bounced the operator out of the plugin for basic single-resource
+  // creation and never worked for APIProduct at all (the wizard is the
+  // only supported path). Keep the menu tight — five entries max.
+  type CreateAction =
+    | { id: string; label: string; kind: 'modal'; supportedKind: SupportedKind }
+    | { id: string; label: string; kind: 'wizard'; href: string };
+
+  const createActions: CreateAction[] = React.useMemo(
     () => [
-      { id: 'gateway', label: t('Gateway'), href: '/k8s/all-namespaces/gateway.networking.k8s.io~v1~Gateway/~new' },
-      { id: 'httproute', label: t('HTTPRoute'), href: '/connectivity-link/create-api' },
-      { id: 'policy', label: t('Policy'), href: '/k8s/all-namespaces/kuadrant.io~v1~AuthPolicy/~new' },
-      { id: 'apiproduct', label: t('API Product'), href: '/k8s/all-namespaces/devportal.kuadrant.io~v1alpha1~APIProduct/~new' },
+      { id: 'apiproduct', label: t('API Product'), kind: 'wizard', href: '/connectivity-link/create-api' },
+      { id: 'gateway', label: t('Gateway'), kind: 'modal', supportedKind: 'Gateway' },
+      { id: 'httproute', label: t('HTTPRoute'), kind: 'modal', supportedKind: 'HTTPRoute' },
+      { id: 'authpolicy', label: t('AuthPolicy'), kind: 'modal', supportedKind: 'AuthPolicy' },
+      { id: 'ratelimit', label: t('RateLimitPolicy'), kind: 'modal', supportedKind: 'RateLimitPolicy' },
     ],
     [t],
   );
+
+  // Which Kind is being edited in the modal (null = modal closed).
+  const [modalKind, setModalKind] = React.useState<SupportedKind | null>(null);
+  const modalSeed = modalKind ? starterFor(modalKind) : null;
+  const modalGvkTable = {
+    Gateway: { gvk: GatewayGVK, plural: 'gateways' },
+    HTTPRoute: { gvk: HTTPRouteGVK, plural: 'httproutes' },
+    AuthPolicy: { gvk: AuthPolicyGVK, plural: 'authpolicies' },
+    RateLimitPolicy: { gvk: RateLimitPolicyGVK, plural: 'ratelimitpolicies' },
+  } as const;
+  const modalGvkEntry = modalKind && modalKind in modalGvkTable
+    ? modalGvkTable[modalKind as keyof typeof modalGvkTable]
+    : null;
 
   return (
     <div className="rhcl-plugin-root">
@@ -130,15 +163,20 @@ const OverviewPage: React.FC = () => {
                   )}
                 >
                   <DropdownList>
-                    {createActions.map((a) => (
-                      <DropdownItem
-                        key={a.id}
-                        component={Link}
-                        to={a.href}
-                      >
-                        {a.label}
-                      </DropdownItem>
-                    ))}
+                    {createActions.map((a) =>
+                      a.kind === 'wizard' ? (
+                        <DropdownItem key={a.id} component={Link} to={a.href}>
+                          {a.label}
+                        </DropdownItem>
+                      ) : (
+                        <DropdownItem
+                          key={a.id}
+                          onClick={() => setModalKind(a.supportedKind)}
+                        >
+                          {a.label}
+                        </DropdownItem>
+                      ),
+                    )}
                   </DropdownList>
                 </Dropdown>
               </FlexItem>
@@ -217,6 +255,22 @@ const OverviewPage: React.FC = () => {
           </GridItem>
         </Grid>
       </PageSection>
+
+      {/* One shared modal instance driven by `modalKind`. Kept at page
+          scope (not inside the dropdown) so it survives the dropdown
+          closing on select — otherwise the modal unmounts before it can
+          open. */}
+      {modalKind && modalSeed && modalGvkEntry && (
+        <ResourceEditorModal
+          isOpen
+          mode="create"
+          gvk={modalGvkEntry.gvk}
+          plural={modalGvkEntry.plural}
+          starterYaml={modalSeed.yaml}
+          hint={modalSeed.template.hint}
+          onClose={() => setModalKind(null)}
+        />
+      )}
     </div>
   );
 };
