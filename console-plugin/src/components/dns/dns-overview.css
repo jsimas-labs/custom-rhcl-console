@@ -1,0 +1,236 @@
+/*
+ * DNS Overview page — styles.
+ *
+ * Mirrors the TLS Overview visual language: elevated cards with 10px
+ * radius + subtle border + soft shadow, small donut on the left KPI
+ * card, four bottom widgets in a single row. All classes are scoped
+ * under `.rhcl-dns-overview-page` so nothing bleeds into the DNS
+ * Troubleshooting page next door.
+ */
+
+.rhcl-dns-overview-page .rhcl-dns-overview-subtitle {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--pf-v5-global--Color--200);
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-lastupdated {
+  font-size: 12px;
+  color: var(--pf-v5-global--Color--200);
+}
+
+/* --------- Panel + card look --------- */
+.rhcl-dns-overview-page .rhcl-dns-overview-panel {
+  height: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  background: var(--pf-t--global--background--color--floating--default);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi {
+  height: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  background: var(--pf-t--global--background--color--floating--default);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* --------- KPI internals --------- */
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pf-t--global--color--regular);
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-big {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--pf-t--global--color--regular);
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-caption {
+  font-size: 12px;
+  color: var(--pf-v5-global--Color--200);
+  margin-bottom: 8px;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-microstats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+/* --------- Overall donut row --------- */
+.rhcl-dns-overview-page .rhcl-dns-overview-donut-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-rows {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-row {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-row-label {
+  color: var(--pf-t--global--color--regular);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-row-value {
+  font-weight: 600;
+  color: var(--pf-t--global--color--regular);
+}
+
+/* --------- Table --------- */
+.rhcl-dns-overview-page .rhcl-dns-overview-hostname {
+  color: var(--pf-t--global--color--brand--default);
+  text-decoration: none;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-hostname:hover {
+  text-decoration: underline;
+}
+
+/* --------- Histogram caption --------- */
+.rhcl-dns-overview-page .rhcl-dns-overview-histo-caption {
+  font-size: 12px;
+  color: var(--pf-v5-global--Color--200);
+  margin-top: 6px;
+}
+
+/* --------- Providers donut layout --------- */
+.rhcl-dns-overview-page .rhcl-dns-overview-provider-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-provider-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-provider-legend li {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-provider-label {
+  color: var(--pf-t--global--color--regular);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-provider-count {
+  font-weight: 600;
+  color: var(--pf-t--global--color--regular);
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-provider-pct {
+  font-weight: normal;
+  color: var(--pf-v5-global--Color--200);
+}
+
+/* --------- Resolver rows --------- */
+.rhcl-dns-overview-page .rhcl-dns-overview-resolver-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-resolver-list li {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) 1fr auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-resolver-label {
+  color: var(--pf-t--global--color--regular);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --------- Events timeline --------- */
+.rhcl-dns-overview-page .rhcl-dns-overview-events {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-events li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-events-icon {
+  padding-top: 2px;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-events-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pf-t--global--color--regular);
+  overflow-wrap: anywhere;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-events-title a {
+  color: var(--pf-t--global--color--brand--default);
+  text-decoration: none;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-events-title a:hover {
+  text-decoration: underline;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-events-detail {
+  font-size: 12px;
+  color: var(--pf-v5-global--Color--200);
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-events-when {
+  font-size: 11px;
+  color: var(--pf-v5-global--Color--200);
+  white-space: nowrap;
+}

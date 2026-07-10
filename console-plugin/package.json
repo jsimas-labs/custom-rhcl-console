@@ -103,6 +103,7 @@
       "developerPortalFlag": "./feature-flags/developerPortalFlag",
       "GRPCRouteListPage": "./components/grpcroutes/GRPCRouteListPage",
       "DNSTroubleshootingPage": "./components/dns/DNSTroubleshootingPage",
+      "DNSOverviewPage": "./components/dns/DNSOverviewPage",
       "TLSTroubleshootingPage": "./components/tls/TLSTroubleshootingPage",
       "TLSOverviewPage": "./components/tls/TLSOverviewPage",
       "InternalDeveloperHubRedirect": "./components/developer-hub/InternalDeveloperHubRedirect",

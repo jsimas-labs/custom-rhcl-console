@@ -64,12 +64,33 @@
   {
     "type": "console.navigation/href",
     "properties": {
-      "id": "connectivity-link-dns-troubleshooting",
-      "name": "%plugin__custom-rhcl-console~DNS%",
-      "href": "/connectivity-link/dns/troubleshooting",
+      "id": "connectivity-link-dns-overview",
+      "name": "%plugin__custom-rhcl-console~DNS Overview%",
+      "href": "/connectivity-link/dns/overview",
       "perspective": "admin",
       "section": "connectivity-link",
       "insertAfter": "connectivity-link-policies"
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/dns/overview",
+      "component": {
+        "$codeRef": "DNSOverviewPage"
+      }
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-dns-troubleshooting",
+      "name": "%plugin__custom-rhcl-console~DNS Troubleshooting%",
+      "href": "/connectivity-link/dns/troubleshooting",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-dns-overview"
     }
   },
   {
