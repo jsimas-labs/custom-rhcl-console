@@ -102,7 +102,9 @@
       "DeveloperPortalRedirect": "./components/developer-portal/DeveloperPortalRedirect",
       "developerPortalFlag": "./feature-flags/developerPortalFlag",
       "GRPCRouteListPage": "./components/grpcroutes/GRPCRouteListPage",
-      "DNSTroubleshootingPage": "./components/dns/DNSTroubleshootingPage"
+      "DNSTroubleshootingPage": "./components/dns/DNSTroubleshootingPage",
+      "InternalDeveloperHubRedirect": "./components/developer-hub/InternalDeveloperHubRedirect",
+      "internalDeveloperHubFlag": "./feature-flags/internalDeveloperHubFlag"
     },
     "dependencies": {
       "@console/pluginAPI": ">=4.19.0-0"

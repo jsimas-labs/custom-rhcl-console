@@ -185,6 +185,45 @@
     }
   },
   {
+    "type": "console.flag/hookProvider",
+    "properties": {
+      "handler": {
+        "$codeRef": "internalDeveloperHubFlag.useInternalDeveloperHubFlag"
+      }
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-developer-hub",
+      "name": "%plugin__custom-rhcl-console~Internal Developer Hub%",
+      "href": "/connectivity-link/developer-hub",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-developer-portal"
+    },
+    "flags": {
+      "required": [
+        "INTERNAL_DEVELOPER_HUB_URL_PRESENT"
+      ]
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/developer-hub",
+      "component": {
+        "$codeRef": "InternalDeveloperHubRedirect"
+      }
+    },
+    "flags": {
+      "required": [
+        "INTERNAL_DEVELOPER_HUB_URL_PRESENT"
+      ]
+    }
+  },
+  {
     "type": "console.page/route",
     "properties": {
       "exact": true,
