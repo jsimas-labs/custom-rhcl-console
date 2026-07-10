@@ -14,6 +14,7 @@ import {
 } from '@patternfly/react-core';
 import {
   PlusCircleIcon,
+  MinusCircleIcon,
   TrashIcon,
   CheckCircleIcon,
   BanIcon,
@@ -34,6 +35,8 @@ import {
   TemplateDef,
   RouteRule,
   newRouteId,
+  BackendPoolEntry,
+  newBackendId,
   AuthMode,
   defaultState,
   RATE_LIMIT_SCOPES,
@@ -221,9 +224,14 @@ const OpenApiImportModal: React.FC<{
       // operator actually wants to expose right now.
       if (rules.length >= 25) break;
     }
+    // NOTE: the OpenAPI slug used to seed `serviceName` on the state,
+    // back when the wizard tracked a single backend at the top level.
+    // With the multi-backend refactor the operator picks Services from
+    // a table in step 2 — we can't guess the K8s Service name from an
+    // OpenAPI title reliably. Slug is dropped from the seed.
+    void slug;
     onApply({
       displayName: title,
-      serviceName: slug,
       description: info.description || '',
       version: info.version || 'v1',
       hostname,
@@ -292,8 +300,20 @@ interface OpenApiSpec {
 }
 
 // ---------------------------------------------------------------------------
-// Step 2 — Backend
+// Step 2 — Backends (multi-backend pool)
 // ---------------------------------------------------------------------------
+//
+// The pool supports three shapes:
+//
+//   1. Single backend  → HTTPRoute with one backendRef (no weight rendered).
+//   2. Weighted split  → HTTPRoute rule with multiple backendRefs and
+//                        per-entry `weight` (canary / blue-green).
+//   3. Cross-namespace → same as above, plus a ReferenceGrant per remote
+//                        namespace so Gateway API lets the HTTPRoute
+//                        reference the remote Service.
+//
+// Per-path routing (a rule pinned to a subset of the pool) is layered
+// on top by the Routes step below via `RouteRule.backendIds`.
 interface ServiceResource extends K8sResourceCommon {
   spec?: { ports?: { port: number; name?: string; protocol?: string }[] };
 }
@@ -308,91 +328,226 @@ export const BackendStep: React.FC<{ state: WizardState; patch: Patch }> = ({ st
     const set = new Set<string>();
     for (const s of services || []) {
       const ns = s.metadata?.namespace;
-      // Skip cluster plumbing namespaces — the target audience is
-      // application teams; showing openshift-* just adds noise.
       if (ns && !ns.startsWith('openshift') && !ns.startsWith('kube-')) set.add(ns);
     }
     return [...set].sort();
   }, [services]);
 
-  const nsServices = React.useMemo(
-    () => (services || []).filter((s) => s.metadata?.namespace === state.namespace),
-    [services, state.namespace],
-  );
+  const servicesInNs = (ns: string): ServiceResource[] =>
+    (services || []).filter((s) => s.metadata?.namespace === ns);
 
-  const selectedSvc = nsServices.find((s) => s.metadata?.name === state.serviceName);
-  const ports = selectedSvc?.spec?.ports || [];
+  const addBackend = () => {
+    const entry: BackendPoolEntry = {
+      id: newBackendId(),
+      namespace: state.backends[0]?.namespace || '',
+      name: '',
+      port: null,
+      protocol: state.backends[0]?.protocol || 'HTTP',
+      weight: 100,
+    };
+    const next = [...state.backends, entry];
+    patch({ backends: next, namespace: next[0].namespace });
+  };
+  const removeBackend = (id: string) => {
+    const next = state.backends.filter((b) => b.id !== id);
+    patch({
+      backends: next,
+      namespace: next[0]?.namespace || '',
+      // Purge orphaned overrides on any route.
+      routes: state.routes.map((r) =>
+        r.backendIds && r.backendIds.length > 0
+          ? { ...r, backendIds: r.backendIds.filter((bid) => next.some((b) => b.id === bid)) }
+          : r,
+      ),
+    });
+  };
+  const updateBackend = (id: string, upd: Partial<BackendPoolEntry>) => {
+    const next = state.backends.map((b) => (b.id === id ? { ...b, ...upd } : b));
+    patch({ backends: next, namespace: next[0]?.namespace || '' });
+  };
+
+  // Cross-NS detection for the operator note. The HTTPRoute is placed
+  // in the first backend's namespace; anything else is remote.
+  const primaryNs = state.backends[0]?.namespace || '';
+  const remoteNamespaces = React.useMemo(() => {
+    const s = new Set<string>();
+    for (const b of state.backends) {
+      if (b.namespace && b.namespace !== primaryNs) s.add(b.namespace);
+    }
+    return [...s];
+  }, [state.backends, primaryNs]);
+
+  const weightSum = state.backends.reduce((acc, b) => acc + (b.weight || 0), 0);
+  const isMulti = state.backends.length > 1;
 
   return (
     <>
       <StepHeader
         title="Where is your API running?"
-        what="Select the Kubernetes Service that already exposes your application. The wizard connects the gateway to it — no code changes needed."
+        what={
+          isMulti
+            ? 'Add multiple Services to split traffic (canary / blue-green) or to fan out across namespaces. The HTTPRoute is placed in the first backend’s namespace; a ReferenceGrant is generated automatically for every remote namespace.'
+            : 'Select the Kubernetes Service that already exposes your application. Add more to split traffic across versions or namespaces.'
+        }
       />
       <div className="rhcl-wiz-two-col">
         <div>
-          <Field label="Namespace">
-            <select
-              className="rhcl-wiz-select"
-              value={state.namespace}
-              onChange={(e) => patch({ namespace: e.target.value, serviceName: '', servicePort: null })}
-            >
-              <option value="">{svcLoaded ? 'Select namespace…' : 'Loading…'}</option>
-              {namespaces.map((ns) => (
-                <option key={ns} value={ns}>
-                  {ns}
-                </option>
+          <div className="rhcl-wiz-backend-table">
+            <div className="rhcl-wiz-backend-head">
+              <span>Namespace</span>
+              <span>Service</span>
+              <span>Port</span>
+              <span>Protocol</span>
+              <span>Weight</span>
+              <span aria-label="Remove" />
+            </div>
+
+            {state.backends.length === 0 && (
+              <div className="rhcl-wiz-backend-empty">
+                No backends yet — add your first Service.
+              </div>
+            )}
+
+            {state.backends.map((b) => {
+              const svcs = servicesInNs(b.namespace);
+              const svc = svcs.find((s) => s.metadata?.name === b.name);
+              const ports = svc?.spec?.ports || [];
+              const isRemote = !!primaryNs && b.namespace && b.namespace !== primaryNs;
+              return (
+                <div className="rhcl-wiz-backend-row" key={b.id}>
+                  <select
+                    className="rhcl-wiz-select"
+                    value={b.namespace}
+                    onChange={(e) => {
+                      const ns = e.target.value;
+                      updateBackend(b.id, { namespace: ns, name: '', port: null });
+                    }}
+                  >
+                    <option value="">{svcLoaded ? 'Select…' : 'Loading…'}</option>
+                    {namespaces.map((ns) => (
+                      <option key={ns} value={ns}>
+                        {ns}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    className="rhcl-wiz-select"
+                    value={b.name}
+                    disabled={!b.namespace}
+                    onChange={(e) => {
+                      const s = servicesInNs(b.namespace).find(
+                        (x) => x.metadata?.name === e.target.value,
+                      );
+                      const firstPort = s?.spec?.ports?.[0]?.port ?? null;
+                      updateBackend(b.id, { name: e.target.value, port: firstPort });
+                    }}
+                  >
+                    <option value="">Select…</option>
+                    {svcs.map((s) => (
+                      <option key={s.metadata?.name} value={s.metadata?.name}>
+                        {s.metadata?.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    className="rhcl-wiz-select"
+                    value={b.port ?? ''}
+                    disabled={!b.name}
+                    onChange={(e) => updateBackend(b.id, { port: Number(e.target.value) })}
+                  >
+                    <option value="">—</option>
+                    {ports.map((p) => (
+                      <option key={p.port} value={p.port}>
+                        {p.port}
+                        {p.name ? ` (${p.name})` : ''}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    className="rhcl-wiz-select"
+                    value={b.protocol}
+                    onChange={(e) =>
+                      updateBackend(b.id, {
+                        protocol: e.target.value as BackendPoolEntry['protocol'],
+                      })
+                    }
+                  >
+                    <option value="HTTP">HTTP</option>
+                    <option value="HTTPS">HTTPS</option>
+                    <option value="GRPC">gRPC</option>
+                  </select>
+
+                  <input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    className="rhcl-wiz-input"
+                    value={b.weight}
+                    onChange={(e) =>
+                      updateBackend(b.id, { weight: Math.max(1, Number(e.target.value) || 1) })
+                    }
+                    disabled={!isMulti}
+                    title={isMulti ? 'Relative weight in the traffic split' : 'Weights only apply once you add a second backend'}
+                  />
+
+                  <button
+                    className="rhcl-wiz-icon-btn"
+                    onClick={() => removeBackend(b.id)}
+                    aria-label={`Remove ${b.namespace}/${b.name}`}
+                    title="Remove backend"
+                  >
+                    <MinusCircleIcon />
+                  </button>
+
+                  {isRemote && (
+                    <div className="rhcl-wiz-backend-note">
+                      Cross-namespace — a ReferenceGrant is generated in
+                      <code> {b.namespace}</code>.
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            <button className="rhcl-wiz-add-btn" onClick={addBackend}>
+              <PlusCircleIcon /> Add backend
+            </button>
+
+            {isMulti && weightSum > 0 && (
+              <div className="rhcl-wiz-backend-split">
+                Split preview:{' '}
+                {state.backends.map((b, i) => {
+                  const pct = Math.round((b.weight / weightSum) * 100);
+                  return (
+                    <span key={b.id}>
+                      {i > 0 ? ' · ' : ''}
+                      <strong>{b.name || 'unnamed'}</strong> {pct}%
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {remoteNamespaces.length > 0 && (
+            <div className="rhcl-wiz-validation info">
+              Cross-namespace backends detected in{' '}
+              {remoteNamespaces.map((n) => (
+                <code key={n}> {n} </code>
               ))}
-            </select>
-          </Field>
-          <Field label="Service">
-            <select
-              className="rhcl-wiz-select"
-              value={state.serviceName}
-              disabled={!state.namespace}
-              onChange={(e) => {
-                const svc = nsServices.find((x) => x.metadata?.name === e.target.value);
-                const firstPort = svc?.spec?.ports?.[0]?.port ?? null;
-                patch({ serviceName: e.target.value, servicePort: firstPort });
-              }}
-            >
-              <option value="">Select service…</option>
-              {nsServices.map((s) => (
-                <option key={s.metadata?.name} value={s.metadata?.name}>
-                  {s.metadata?.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Port">
-            <select
-              className="rhcl-wiz-select"
-              value={state.servicePort ?? ''}
-              disabled={!state.serviceName}
-              onChange={(e) => patch({ servicePort: Number(e.target.value) })}
-            >
-              {ports.map((p) => (
-                <option key={p.port} value={p.port}>
-                  {p.port}
-                  {p.name ? ` (${p.name})` : ''}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Protocol">
-            <select
-              className="rhcl-wiz-select"
-              value={state.protocol}
-              onChange={(e) => patch({ protocol: e.target.value as WizardState['protocol'] })}
-            >
-              <option value="HTTP">HTTP</option>
-              <option value="HTTPS">HTTPS</option>
-              <option value="GRPC">gRPC</option>
-            </select>
-          </Field>
-          {state.serviceName && (
+              — Kuadrant needs a{' '}
+              <code>ReferenceGrant</code> in each. The wizard will create them.
+            </div>
+          )}
+
+          {state.backends.length > 0 && state.backends.every((b) => b.name && b.port) && (
             <div className="rhcl-wiz-validation ok">
-              <CheckCircleIcon /> Backend found: {state.namespace}/{state.serviceName}:{state.servicePort}
+              <CheckCircleIcon /> {state.backends.length === 1
+                ? `Backend found: ${state.backends[0].namespace}/${state.backends[0].name}:${state.backends[0].port}`
+                : `${state.backends.length} backends ready`}
             </div>
           )}
         </div>
@@ -557,49 +712,99 @@ export const RoutesStep: React.FC<{ state: WizardState; patch: Patch }> = ({ sta
             </thead>
             <tbody>
               {state.routes.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    <select
-                      className="rhcl-wiz-select"
-                      value={r.method}
-                      onChange={(e) => update(r.id, { method: e.target.value })}
-                    >
-                      {METHODS.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <input
-                      className="rhcl-wiz-input"
-                      value={r.path}
-                      placeholder="/api/v1"
-                      onChange={(e) => update(r.id, { path: e.target.value })}
-                    />
-                  </td>
-                  <td>
-                    <select
-                      className="rhcl-wiz-select"
-                      value={r.matchType}
-                      onChange={(e) => update(r.id, { matchType: e.target.value as RouteRule['matchType'] })}
-                    >
-                      <option value="PathPrefix">Prefix</option>
-                      <option value="Exact">Exact</option>
-                    </select>
-                  </td>
-                  <td>
-                    <Button
-                      variant="plain"
-                      aria-label="Delete route"
-                      onClick={() => remove(r.id)}
-                      isDisabled={state.routes.length === 1}
-                    >
-                      <TrashIcon />
-                    </Button>
-                  </td>
-                </tr>
+                <React.Fragment key={r.id}>
+                  <tr>
+                    <td>
+                      <select
+                        className="rhcl-wiz-select"
+                        value={r.method}
+                        onChange={(e) => update(r.id, { method: e.target.value })}
+                      >
+                        {METHODS.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        className="rhcl-wiz-input"
+                        value={r.path}
+                        placeholder="/api/v1"
+                        onChange={(e) => update(r.id, { path: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <select
+                        className="rhcl-wiz-select"
+                        value={r.matchType}
+                        onChange={(e) => update(r.id, { matchType: e.target.value as RouteRule['matchType'] })}
+                      >
+                        <option value="PathPrefix">Prefix</option>
+                        <option value="Exact">Exact</option>
+                      </select>
+                    </td>
+                    <td>
+                      <Button
+                        variant="plain"
+                        aria-label="Delete route"
+                        onClick={() => remove(r.id)}
+                        isDisabled={state.routes.length === 1}
+                      >
+                        <TrashIcon />
+                      </Button>
+                    </td>
+                  </tr>
+                  {/*
+                    Per-route backend picker — only meaningful when the
+                    pool has more than one entry. Toggling a chip:
+                      - all chips off (empty backendIds) → rule uses the
+                        entire pool with declared weights (default split)
+                      - one or more chips on             → rule is pinned
+                        to that subset (per-path routing)
+                    Clicking the "All" chip clears the override.
+                  */}
+                  {state.backends.length > 1 && (
+                    <tr>
+                      <td colSpan={4} style={{ borderTop: 'none', paddingTop: 0 }}>
+                        <div className="rhcl-wiz-route-backends">
+                          <span className="rhcl-wiz-route-backends-label">Backends:</span>
+                          <button
+                            className={`rhcl-wiz-route-chip${(!r.backendIds || r.backendIds.length === 0) ? ' is-active' : ''}`}
+                            onClick={() => update(r.id, { backendIds: undefined })}
+                            title="Use the full pool with declared weights"
+                          >
+                            All (weighted split)
+                          </button>
+                          {state.backends.map((b) => {
+                            const selected = r.backendIds?.includes(b.id) ?? false;
+                            const toggle = () => {
+                              const current = r.backendIds || [];
+                              const next = selected
+                                ? current.filter((id) => id !== b.id)
+                                : [...current, b.id];
+                              // Empty = revert to "All".
+                              update(r.id, {
+                                backendIds: next.length === 0 ? undefined : next,
+                              });
+                            };
+                            return (
+                              <button
+                                key={b.id}
+                                className={`rhcl-wiz-route-chip${selected ? ' is-active' : ''}`}
+                                onClick={toggle}
+                                title={`${b.namespace}/${b.name}:${b.port ?? ''}`}
+                              >
+                                {b.name || 'unnamed'}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
@@ -621,7 +826,19 @@ export const RoutesStep: React.FC<{ state: WizardState; patch: Patch }> = ({ sta
                 </code>
                 <span className="rhcl-wiz-route-tree-arrow">→</span>
                 <code className="rhcl-wiz-route-tree-backend">
-                  {state.serviceName || 'backend'}:{state.servicePort ?? ''}
+                  {(() => {
+                    // Show the resolved backends for this route — either
+                    // the override subset if present, or the whole pool.
+                    const pool = state.backends;
+                    const chosen =
+                      r.backendIds && r.backendIds.length > 0
+                        ? pool.filter((b) => r.backendIds!.includes(b.id))
+                        : pool;
+                    if (chosen.length === 0) return 'backend:—';
+                    return chosen
+                      .map((b) => `${b.name || 'backend'}:${b.port ?? ''}`)
+                      .join(' + ');
+                  })()}
                 </code>
               </div>
             ))}

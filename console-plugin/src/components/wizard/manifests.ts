@@ -76,10 +76,46 @@ function normalizePath(p: string): string {
   return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }
 
+/** Namespace where the HTTPRoute lives — first backend's namespace. */
+function httpRouteNamespace(s: WizardState): string {
+  return s.backends[0]?.namespace || '';
+}
+
+/**
+ * Render one `backendRefs[]` list for a rule, resolving:
+ *
+ *   - which pool entries serve this rule (all if no override; the
+ *     subset in `rule.backendIds` otherwise)
+ *   - whether each entry is cross-namespace (emit `namespace:` on the
+ *     ref; a ReferenceGrant will be generated in that remote namespace)
+ *   - the weight — omitted when the resolved list has one entry
+ *     (avoids YAML noise on the common single-backend case)
+ */
+function backendRefsForRule(
+  s: WizardState,
+  rule: WizardState['routes'][number],
+): Array<Record<string, unknown>> {
+  const routeNs = httpRouteNamespace(s);
+  const pool =
+    rule.backendIds && rule.backendIds.length > 0
+      ? s.backends.filter((b) => rule.backendIds!.includes(b.id))
+      : s.backends;
+  if (pool.length === 0) return [];
+  const single = pool.length === 1;
+  return pool.map((b) => {
+    const ref: Record<string, unknown> = { name: b.name, port: b.port ?? 80 };
+    if (b.namespace && b.namespace !== routeNs) {
+      ref.namespace = b.namespace;
+    }
+    if (!single) ref.weight = b.weight || 1;
+    return ref;
+  });
+}
+
 export function genHTTPRoute(s: WizardState): GeneratedResource | null {
-  if (!s.serviceName) return null;
+  if (s.backends.length === 0 || !s.backends.every((b) => b.name)) return null;
   const name = `${apiSlug(s)}-route`;
-  const ns = s.namespace;
+  const ns = httpRouteNamespace(s);
   const rules = s.routes.map((r) => ({
     matches: [
       {
@@ -87,7 +123,7 @@ export function genHTTPRoute(s: WizardState): GeneratedResource | null {
         ...(r.method !== 'ANY' ? { method: r.method } : {}),
       },
     ],
-    backendRefs: [{ name: s.serviceName, port: s.servicePort ?? 80 }],
+    backendRefs: backendRefsForRule(s, r),
   }));
   return {
     kind: 'HTTPRoute',
@@ -114,8 +150,51 @@ export function genHTTPRoute(s: WizardState): GeneratedResource | null {
   };
 }
 
+/**
+ * Gateway API cross-namespace policy: an HTTPRoute in namespace A that
+ * references a Service in namespace B needs the Service's namespace to
+ * grant it. One ReferenceGrant per remote namespace, allowing HTTPRoute
+ * in the origin namespace to reference Service.
+ */
+export function genReferenceGrants(s: WizardState): GeneratedResource[] {
+  if (s.backends.length === 0) return [];
+  const originNs = httpRouteNamespace(s);
+  const remotes = new Set<string>();
+  for (const b of s.backends) {
+    if (b.namespace && b.namespace !== originNs) remotes.add(b.namespace);
+  }
+  const grants: GeneratedResource[] = [];
+  for (const remoteNs of remotes) {
+    const name = `rg-${originNs}-${apiSlug(s)}`;
+    grants.push({
+      kind: 'ReferenceGrant',
+      name,
+      namespace: remoteNs,
+      apiGroup: 'gateway.networking.k8s.io',
+      apiVersion: 'v1beta1',
+      plural: 'referencegrants',
+      manifest: {
+        apiVersion: 'gateway.networking.k8s.io/v1beta1',
+        kind: 'ReferenceGrant',
+        metadata: { name, namespace: remoteNs },
+        spec: {
+          from: [
+            {
+              group: 'gateway.networking.k8s.io',
+              kind: 'HTTPRoute',
+              namespace: originNs,
+            },
+          ],
+          to: [{ group: '', kind: 'Service' }],
+        },
+      },
+    });
+  }
+  return grants;
+}
+
 export function genAuthPolicy(s: WizardState): GeneratedResource | null {
-  if (s.authMode === 'anonymous' || !s.serviceName) return null;
+  if (s.authMode === 'anonymous' || s.backends.length === 0) return null;
   const name = `${apiSlug(s)}-auth`;
   const ns = s.namespace;
 
@@ -270,7 +349,7 @@ function buildRateLimitLimits(s: WizardState): Record<string, unknown> {
 }
 
 export function genRateLimitPolicy(s: WizardState): GeneratedResource | null {
-  if (!s.rateLimitEnabled || !s.serviceName) return null;
+  if (!s.rateLimitEnabled || s.backends.length === 0) return null;
   const name = `${apiSlug(s)}-ratelimit`;
   const ns = s.namespace;
   return {
@@ -297,7 +376,7 @@ export function genRateLimitPolicy(s: WizardState): GeneratedResource | null {
 }
 
 export function genTokenRateLimitPolicy(s: WizardState): GeneratedResource | null {
-  if (!s.tokenLimitEnabled || !s.serviceName) return null;
+  if (!s.tokenLimitEnabled || s.backends.length === 0) return null;
   const name = `${apiSlug(s)}-tokenlimit`;
   const ns = s.namespace;
   return {
@@ -390,7 +469,7 @@ export function genTLSPolicy(s: WizardState): GeneratedResource | null {
 }
 
 export function genAPIProduct(s: WizardState): GeneratedResource | null {
-  if (!s.productEnabled || !s.serviceName) return null;
+  if (!s.productEnabled || s.backends.length === 0) return null;
   const name = apiSlug(s);
   const ns = s.namespace;
   return {
@@ -428,6 +507,9 @@ export function generateAll(s: WizardState): GeneratedResource[] {
   return [
     genGateway(s),
     genHTTPRoute(s),
+    // Zero or more ReferenceGrants — one per remote namespace hosting
+    // a backend Service that the HTTPRoute points at.
+    ...genReferenceGrants(s),
     genAuthPolicy(s),
     genRateLimitPolicy(s),
     genTokenRateLimitPolicy(s),

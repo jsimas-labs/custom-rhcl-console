@@ -84,7 +84,10 @@ const CreateApiWizard: React.FC = () => {
       case 'template':
         return state.template !== null;
       case 'backend':
-        return !!(state.namespace && state.serviceName && state.servicePort);
+        return (
+          state.backends.length > 0 &&
+          state.backends.every((b) => !!(b.namespace && b.name && b.port))
+        );
       case 'gateway':
         return state.useExistingGateway ? !!state.existingGatewayName : !!state.gatewayName;
       case 'routes':

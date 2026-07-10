@@ -674,3 +674,146 @@
   font-size: 13px;
   color: var(--wiz-text);
 }
+
+/* -----------------------------------------------------------------
+ * Multi-backend table (step 2)
+ * ---------------------------------------------------------------- */
+.rhcl-wiz-backend-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--wiz-border);
+  border-radius: 8px;
+  background: var(--wiz-panel);
+}
+.rhcl-wiz-backend-head {
+  display: grid;
+  grid-template-columns: 1.2fr 1.4fr 0.8fr 0.8fr 0.6fr 32px;
+  gap: 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--pf-v5-global--Color--200);
+  padding: 0 4px;
+}
+.rhcl-wiz-backend-empty {
+  font-size: 13px;
+  color: var(--pf-v5-global--Color--200);
+  font-style: italic;
+  padding: 8px 4px;
+}
+.rhcl-wiz-backend-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1.4fr 0.8fr 0.8fr 0.6fr 32px;
+  gap: 8px;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--wiz-panel) 60%, transparent);
+}
+.rhcl-wiz-backend-row > .rhcl-wiz-backend-note {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--pf-t--global--color--nonstatus--blue--default);
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: color-mix(
+    in srgb,
+    var(--pf-t--global--color--nonstatus--blue--default) 10%,
+    transparent
+  );
+}
+.rhcl-wiz-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--pf-v5-global--Color--200);
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.rhcl-wiz-icon-btn:hover {
+  background: color-mix(
+    in srgb,
+    var(--pf-t--global--color--status--danger--default) 12%,
+    transparent
+  );
+  color: var(--pf-t--global--color--status--danger--default);
+}
+.rhcl-wiz-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px dashed var(--wiz-border);
+  background: transparent;
+  color: var(--pf-t--global--color--brand--default);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  align-self: flex-start;
+  transition: background 120ms;
+}
+.rhcl-wiz-add-btn:hover {
+  background: color-mix(
+    in srgb,
+    var(--pf-t--global--color--brand--default) 8%,
+    transparent
+  );
+}
+.rhcl-wiz-backend-split {
+  font-size: 12px;
+  color: var(--pf-v5-global--Color--200);
+  padding: 6px 4px 0;
+}
+.rhcl-wiz-backend-split strong {
+  color: var(--pf-t--global--color--regular);
+}
+
+/* -----------------------------------------------------------------
+ * Per-route backend chip picker (step 4)
+ * ---------------------------------------------------------------- */
+.rhcl-wiz-route-backends {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 0;
+}
+.rhcl-wiz-route-backends-label {
+  font-size: 11px;
+  color: var(--pf-v5-global--Color--200);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-right: 4px;
+}
+.rhcl-wiz-route-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--wiz-border);
+  background: transparent;
+  color: var(--pf-v5-global--Color--200);
+  cursor: pointer;
+  transition: all 120ms;
+}
+.rhcl-wiz-route-chip.is-active {
+  background: color-mix(
+    in srgb,
+    var(--pf-t--global--color--brand--default) 12%,
+    transparent
+  );
+  color: var(--pf-t--global--color--brand--default);
+  border-color: var(--pf-t--global--color--brand--default);
+}
+.rhcl-wiz-route-chip:hover {
+  border-color: var(--pf-t--global--color--brand--default);
+}

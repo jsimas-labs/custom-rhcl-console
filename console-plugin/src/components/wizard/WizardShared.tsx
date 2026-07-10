@@ -41,10 +41,20 @@ export const ArchDiagram: React.FC<{ state: WizardState }> = ({ state }) => {
     },
     {
       label: 'Backend',
-      sub: state.serviceName
-        ? `${state.namespace}/${state.serviceName}:${state.servicePort ?? ''}`
-        : undefined,
-      active: !!state.serviceName,
+      // Multi-backend surfaces as either "1 backend" (with the
+      // resolved ns/name:port on hover) or "N backends" — the split
+      // preview stays in the actual BackendStep to avoid crowding the
+      // right-column diagram.
+      sub: (() => {
+        const bs = state.backends;
+        if (bs.length === 0) return undefined;
+        if (bs.length === 1) {
+          const b = bs[0];
+          return `${b.namespace}/${b.name}:${b.port ?? ''}`;
+        }
+        return `${bs.length} backends`;
+      })(),
+      active: state.backends.length > 0,
     },
   ];
   return (
