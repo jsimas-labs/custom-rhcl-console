@@ -499,6 +499,59 @@ export function genTLSPolicy(s: WizardState): GeneratedResource | null {
   };
 }
 
+/**
+ * Optional test-key Secret. Emitted only when the operator picked
+ * api-key auth AND toggled the "generate test key" switch on the
+ * Review step. The Secret carries:
+ *
+ *   - the wizard's random value in `stringData.api_key` — Kuadrant's
+ *     AuthPolicy reads that field via `credentials.customHeader`;
+ *   - the `authorino.kuadrant.io/managed-by: authorino` label so
+ *     Authorino picks it up as an API key credential;
+ *   - the `app: <slug>-apikey` label so it matches the AuthPolicy's
+ *     `apiKey.selector.matchLabels` — see genAuthPolicy above.
+ *
+ * The value is echoed on the success screen inside the curl example so
+ * an operator can paste and hit the endpoint immediately, no round
+ * trip to the developer portal.
+ */
+export function genTestApiKeySecret(s: WizardState): GeneratedResource | null {
+  if (s.authMode !== 'api-key') return null;
+  if (!s.generateTestApiKey) return null;
+  if (!s.testApiKeyValue) return null;
+  if (s.backends.length === 0) return null;
+  const name = `${apiSlug(s)}-test-key`;
+  const ns = s.namespace;
+  return {
+    kind: 'Secret',
+    name,
+    namespace: ns,
+    apiGroup: '',
+    apiVersion: 'v1',
+    plural: 'secrets',
+    manifest: {
+      apiVersion: 'v1',
+      kind: 'Secret',
+      metadata: {
+        name,
+        namespace: ns,
+        labels: {
+          app: `${apiSlug(s)}-apikey`,
+          'authorino.kuadrant.io/managed-by': 'authorino',
+          'kuadrant.io/apikeys-by': 'api_key',
+        },
+        annotations: {
+          'secret.kuadrant.io/user-id': 'test-user',
+        },
+      },
+      type: 'Opaque',
+      stringData: {
+        api_key: s.testApiKeyValue,
+      },
+    },
+  };
+}
+
 export function genAPIProduct(s: WizardState): GeneratedResource | null {
   if (!s.productEnabled || s.backends.length === 0) return null;
   const name = apiSlug(s);
@@ -547,6 +600,7 @@ export function generateAll(s: WizardState): GeneratedResource[] {
     genDNSPolicy(s),
     genTLSPolicy(s),
     genAPIProduct(s),
+    genTestApiKeySecret(s),
   ].filter((r): r is GeneratedResource => r !== null);
 }
 

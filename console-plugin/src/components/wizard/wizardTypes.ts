@@ -183,6 +183,18 @@ export interface WizardState {
   openApiUrl: string;
   approvalMode: 'AUTOMATIC' | 'MANUAL';
   visibility: 'PUBLIC' | 'INTERNAL';
+
+  // Step 8 — Review / test key. When authMode === 'api-key', an
+  // optional Secret is emitted with a random 32-byte URL-safe base64
+  // value labeled to be picked up by the wizard's AuthPolicy
+  // selector. Populates the success screen's curl example with the
+  // literal key so the operator can paste + run without a second trip
+  // to the developer portal.
+  generateTestApiKey: boolean;
+  /** The value used for both the Secret and the success-screen curl.
+   *  Generated once via `crypto.getRandomValues` when the operator
+   *  enables the toggle so switching pages doesn't churn a new key. */
+  testApiKeyValue: string;
 }
 
 export const STEP_IDS = [
@@ -267,7 +279,28 @@ export function defaultState(): WizardState {
     openApiUrl: '',
     approvalMode: 'MANUAL',
     visibility: 'PUBLIC',
+    generateTestApiKey: true,
+    testApiKeyValue: '',
   };
+}
+
+/**
+ * URL-safe base64 of 32 random bytes, stripped of padding — good
+ * enough for a smoke-test key (matches what Kuadrant devportal picks
+ * for provisioned APIKey Secrets). Uses the Web Crypto API; falls back
+ * to `Math.random()` when unavailable so unit-testing environments
+ * without a crypto shim don't blow up.
+ */
+export function generateApiKeyValue(): string {
+  const bytes = new Uint8Array(32);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 /**

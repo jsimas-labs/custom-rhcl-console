@@ -5,6 +5,7 @@ import {
   Spinner,
   Alert,
   ClipboardCopy,
+  Switch,
   Modal,
   ModalVariant,
   ModalHeader,
@@ -26,6 +27,7 @@ import {
   STEP_LABELS,
   StepId,
   readinessPct,
+  generateApiKeyValue,
 } from './wizardTypes';
 import { generateAll, toYaml, exposedUrl, GeneratedResource } from './manifests';
 import { ResourceSidebar, ArchDiagram, StepHeader } from './WizardShared';
@@ -147,9 +149,17 @@ const CreateApiWizard: React.FC = () => {
   // ---------- Success screen ----------
   if (phase === 'done') {
     const url = exposedUrl(state);
+    // When the operator asked the wizard to mint a test key on the
+    // Review step, splice it into the curl example so paste-and-run
+    // just works. Otherwise fall back to the placeholder so the shape
+    // is still there for docs.
+    const apiKeyForCurl =
+      state.generateTestApiKey && state.testApiKeyValue
+        ? state.testApiKeyValue
+        : '<your-key>';
     const curl =
       state.authMode === 'api-key'
-        ? `curl ${url} -H "${state.apiKeyHeader}: <your-key>"`
+        ? `curl ${url} -H "${state.apiKeyHeader}: ${apiKeyForCurl}"`
         : state.authMode === 'jwt' || state.authMode === 'oidc'
         ? `curl ${url} -H "Authorization: Bearer <token>"`
         : `curl ${url}`;
@@ -273,7 +283,7 @@ const CreateApiWizard: React.FC = () => {
           {stepId === 'policies' && <PoliciesStep state={state} patch={patch} />}
           {stepId === 'product' && <ProductStep state={state} patch={patch} />}
           {stepId === 'review' && (
-            <ReviewStep state={state} resources={resources} onDownload={downloadYaml} />
+            <ReviewStep state={state} patch={patch} resources={resources} onDownload={downloadYaml} />
           )}
 
           {/* Footer nav */}
@@ -317,10 +327,24 @@ const CreateApiWizard: React.FC = () => {
 // ---------------------------------------------------------------------------
 const ReviewStep: React.FC<{
   state: WizardState;
+  patch: (p: Partial<WizardState>) => void;
   resources: GeneratedResource[];
   onDownload: () => void;
-}> = ({ state, resources, onDownload }) => {
+}> = ({ state, patch, resources, onDownload }) => {
   const pct = readinessPct(state);
+  // Lazily seed the test-key value the first time the operator turns
+  // the switch on. Kept as an effect (not inline in the change handler)
+  // so an already-populated value (e.g. after coming back from the
+  // Success screen and re-editing) isn't rotated on re-render.
+  React.useEffect(() => {
+    if (
+      state.authMode === 'api-key' &&
+      state.generateTestApiKey &&
+      !state.testApiKeyValue
+    ) {
+      patch({ testApiKeyValue: generateApiKeyValue() });
+    }
+  }, [state.authMode, state.generateTestApiKey, state.testApiKeyValue, patch]);
   // View YAML in-place: operators kept asking to double-check the manifest
   // before hitting Create, and having "Download" as the only option meant
   // switching apps to read a couple of lines. The modal renders the same
@@ -353,6 +377,32 @@ const ReviewStep: React.FC<{
               ))}
             </ul>
           </div>
+          {state.authMode === 'api-key' && (
+            <div className="rhcl-wiz-review-block">
+              <div className="rhcl-wiz-review-title">Try it right away</div>
+              <div style={{ fontSize: 12, color: 'var(--pf-v5-global--Color--200)', marginBottom: 8 }}>
+                Generate a random API key alongside the policies and pre-fill the curl example on
+                the success screen so you can validate the endpoint without a trip to the developer
+                portal. Off in production — leave it on for lab / smoke tests.
+              </div>
+              <Switch
+                id="wiz-generate-test-key"
+                label="Generate a test API key (creates a labeled Secret)"
+                isChecked={state.generateTestApiKey}
+                onChange={(_e, v) => patch({ generateTestApiKey: v })}
+              />
+              {state.generateTestApiKey && state.testApiKeyValue && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 11, color: 'var(--pf-v5-global--Color--200)', marginBottom: 4 }}>
+                    Preview
+                  </div>
+                  <ClipboardCopy isReadOnly hoverTip="Copy key" clickTip="Copied">
+                    {state.testApiKeyValue}
+                  </ClipboardCopy>
+                </div>
+              )}
+            </div>
+          )}
           {pct < 100 && (
             <Alert variant="warning" isInline title={`API readiness at ${pct}%`}>
               Some optional capabilities are off — check the sidebar for what's missing. You can
