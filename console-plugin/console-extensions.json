@@ -65,7 +65,7 @@
     "type": "console.navigation/href",
     "properties": {
       "id": "connectivity-link-dns-troubleshooting",
-      "name": "%plugin__custom-rhcl-console~DNS Troubleshooting%",
+      "name": "%plugin__custom-rhcl-console~DNS%",
       "href": "/connectivity-link/dns/troubleshooting",
       "perspective": "admin",
       "section": "connectivity-link",

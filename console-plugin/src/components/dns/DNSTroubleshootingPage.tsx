@@ -7,7 +7,6 @@ import {
   GridItem,
   Spinner,
   Bullseye,
-  Label,
   EmptyState,
   EmptyStateBody,
   EmptyStateActions,
@@ -59,18 +58,20 @@ import './dns-troubleshooting.css';
 const DNSTroubleshootingPage: React.FC = () => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
   const [selectedHostname, setSelectedHostname] = React.useState<string | null>(null);
-  // A nonce we bump when the user clicks Refresh / Run diagnostics. The
-  // useMemo in the hook already re-runs when its watches emit, so this
-  // is largely cosmetic — but reading it in a key forces a synthesised
-  // resolver table refresh so the "last checked" timestamps advance.
-  const [tickKey, setTickKey] = React.useState(0);
+  // Nonce bumped by Refresh / Run-all-checks. Passed as a dep into
+  // useDnsProber so a click re-fires POST /api/probe even when the
+  // hostname hasn't changed. The K8s watches driving useDnsTroubleshooting
+  // are list-watch, so they refresh on their own — the button only
+  // needs to nudge the prober.
+  const [proberNonce, setProberNonce] = React.useState(0);
+  const runAllChecks = () => setProberNonce((n) => n + 1);
   const [createOpen, setCreateOpen] = React.useState(false);
 
   const flow = useDnsTroubleshooting(selectedHostname);
   // Live prober lookups when the pluginConfig ConfigMap carries a
   // dnsProberUrl. Falls through to the "install the companion" empty
   // state otherwise. See DNSResolverTable for the three-state matrix.
-  const prober = useDnsProber(flow.hostname || null);
+  const prober = useDnsProber(flow.hostname || null, proberNonce);
 
   // Starter YAML for the Create DNSPolicy empty-state CTA — pre-fills
   // `spec.targetRef.name` with the Gateway we already know needs the
@@ -109,10 +110,7 @@ const DNSTroubleshootingPage: React.FC = () => {
     return (
       <div className="rhcl-plugin-root rhcl-dns-page">
         <PageSection variant="default">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Title headingLevel="h1">{t('DNS Troubleshooting')}</Title>
-            <Label color="blue" isCompact>BETA</Label>
-          </div>
+          <Title headingLevel="h1">{t('DNS Troubleshooting')}</Title>
         </PageSection>
         <PageSection isFilled>
           <Bullseye>
@@ -186,14 +184,11 @@ const DNSTroubleshootingPage: React.FC = () => {
   })();
 
   return (
-    <div className="rhcl-plugin-root rhcl-dns-page" key={tickKey}>
+    <div className="rhcl-plugin-root rhcl-dns-page">
       <PageSection variant="default">
         <div className="rhcl-dns-header">
           <div className="rhcl-dns-header-left">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Title headingLevel="h1">{t('DNS Troubleshooting')}</Title>
-              <Label color="blue" isCompact>BETA</Label>
-            </div>
+            <Title headingLevel="h1">{t('DNS Troubleshooting')}</Title>
             <div style={{ fontSize: 14, color: 'var(--pf-v5-global--Color--200)' }}>
               {t('Visualize and debug DNS connectivity for your Kuadrant gateways.')}
             </div>
@@ -229,17 +224,29 @@ const DNSTroubleshootingPage: React.FC = () => {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/*
+              Both buttons drive the same action: bump the prober nonce.
+              The K8s watches under `useDnsTroubleshooting` update live
+              on their own so nothing needs to force-refresh there.
+              "Refresh" reads as the low-key everyday nudge; "Run all
+              checks" as the deliberate diagnostic pass. Same behaviour,
+              two affordances that match different mental models.
+            */}
             <Button
               variant="secondary"
               icon={<SyncAltIcon />}
-              onClick={() => setTickKey((k) => k + 1)}
+              onClick={runAllChecks}
+              isLoading={prober.loading}
+              isDisabled={prober.loading}
             >
               {t('Refresh')}
             </Button>
             <Button
               variant="primary"
               icon={<PlayIcon />}
-              onClick={() => setTickKey((k) => k + 1)}
+              onClick={runAllChecks}
+              isLoading={prober.loading}
+              isDisabled={prober.loading}
             >
               {t('Run all checks')}
             </Button>

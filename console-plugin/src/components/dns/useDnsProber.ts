@@ -81,7 +81,13 @@ function toStepStatus(s: string): StepStatus {
   return 'unknown';
 }
 
-export function useDnsProber(hostname: string | null): UseDnsProberResult {
+/**
+ * @param hostname current selection from the page dropdown
+ * @param nonce    bump to force a fresh POST /api/probe even when the
+ *                 hostname hasn't changed. Wired to the page's Refresh
+ *                 and Run-all-checks buttons.
+ */
+export function useDnsProber(hostname: string | null, nonce: number = 0): UseDnsProberResult {
   const { config } = usePluginConfig();
   const proberUrl = config.dnsProberUrl?.trim();
   const configured = !!proberUrl;
@@ -143,7 +149,7 @@ export function useDnsProber(hostname: string | null): UseDnsProberResult {
     return () => {
       cancelled = true;
     };
-  }, [proberUrl, configured, hostname]);
+  }, [proberUrl, configured, hostname, nonce]);
 
   return { configured, loading, error, resolvers, probedAt };
 }

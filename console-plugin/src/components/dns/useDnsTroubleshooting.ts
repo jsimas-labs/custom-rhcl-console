@@ -420,11 +420,10 @@ export function useDnsTroubleshooting(selectedHostname: string | null): DnsFlow 
 
     // ------- PUBLIC DNS step -------
     // Cluster-side we know when the record was written (matchingRecord
-    // exists + Ready). Public propagation itself still can't be probed
-    // from the browser — the real prober lives server-side and will
-    // fill the resolver table when connected. Until then this step
-    // tracks the record-write status: "healthy" once the provider
-    // Ready'd, otherwise pending/skipped.
+    // Ready). Whether public resolvers actually see it needs the DNS
+    // Prober companion (see DNSResolverTable). The card here reflects
+    // the record-write status; the resolver preview below is the
+    // authoritative real-time signal.
     const publicDnsStep: DnsStep = {
       id: 'public-dns',
       title: 'Public DNS',
@@ -432,7 +431,7 @@ export function useDnsTroubleshooting(selectedHostname: string | null): DnsFlow 
       status: !dnsPolicy
         ? 'skipped'
         : matchingRecord && recordReady?.ok
-        ? 'pending' // record written — propagation racy, page defaults to "still spreading"
+        ? 'pending'
         : matchingRecord
         ? 'pending'
         : dnsPolicyEnforced?.ok
@@ -441,16 +440,13 @@ export function useDnsTroubleshooting(selectedHostname: string | null): DnsFlow 
       summary: !dnsPolicy
         ? 'Skipped — no records to propagate.'
         : matchingRecord && recordReady?.ok
-        ? 'Record acknowledged by provider. Cross-resolver checks below approximate propagation.'
+        ? 'Record acknowledged by provider. See the resolver preview below for live per-resolver status.'
         : matchingRecord
         ? 'DNSRecord exists; waiting for provider before public resolvers see it.'
         : dnsPolicyEnforced?.ok
-        ? 'Records were sent to the provider. Cross-resolver checks below approximate propagation.'
+        ? 'Records were sent to the provider. See the resolver preview below for live per-resolver status.'
         : 'Records not yet written.',
-      details: [
-        { label: 'Sampled resolvers', value: '8', muted: true },
-        { label: 'Live probing', value: 'requires backend prober', muted: true },
-      ],
+      details: [],
     };
 
     // ------- HTTPROUTE step -------
