@@ -9,7 +9,7 @@ import {
   GatewayGVK,
   HTTPRouteGVK,
 } from '../../models';
-import { DnsFlow, DnsResolver, DnsStep, DnsTimelineEvent, StepStatus } from './types';
+import { DnsFlow, DnsStep, DnsTimelineEvent, StepStatus } from './types';
 
 /**
  * The DNS troubleshooting page's single source of truth. Watches the
@@ -194,58 +194,6 @@ function worstStatus(steps: DnsStep[]): StepStatus {
  * cluster-side DNS record is "pending", most public resolvers are
  * likely still returning NXDOMAIN, one might be catching up.
  */
-function synthResolvers(hostname: string, base: StepStatus): DnsResolver[] {
-  const rand = (seed: string, mod: number) => {
-    // Cheap deterministic hash so the numbers don't jitter every render.
-    let h = 0;
-    for (const c of seed) h = (h * 31 + c.charCodeAt(0)) | 0;
-    return Math.abs(h) % mod;
-  };
-  const rows: Array<{ n: string; l: string; ip: string }> = [
-    { n: 'Cloudflare', l: 'São Paulo, BR', ip: '104.16.248.249' },
-    { n: 'Google', l: 'São Paulo, BR', ip: '8.8.8.8' },
-    { n: 'Quad9', l: 'Miami, US', ip: '9.9.9.9' },
-    { n: 'OpenDNS', l: 'New York, US', ip: '208.67.222.222' },
-    { n: 'Verisign', l: 'Reston, US', ip: '64.6.64.6' },
-    { n: 'AWS', l: 'N. Virginia, US', ip: 'Route 53' },
-    { n: 'Cisco OpenDNS', l: 'San Jose, US', ip: '208.67.220.220' },
-    { n: 'Yandex', l: 'Moscow, RU', ip: '77.88.8.8' },
-  ];
-  return rows.map((r, i) => {
-    let status: StepStatus;
-    let result: string;
-    if (base === 'healthy') {
-      status = 'healthy';
-      result = 'A 54.222.18.10';
-    } else if (base === 'pending') {
-      // Simulate partial propagation: 3/8 healthy, 3/8 pending, 2/8 failing.
-      const bucket = (rand(hostname + r.n, 100) + i * 7) % 100;
-      if (bucket < 37) {
-        status = 'healthy';
-        result = 'A 54.222.18.10';
-      } else if (bucket < 75) {
-        status = 'pending';
-        result = 'SERVFAIL';
-      } else {
-        status = 'failing';
-        result = 'NXDOMAIN';
-      }
-    } else {
-      status = 'failing';
-      result = 'NXDOMAIN';
-    }
-    return {
-      name: r.n,
-      location: r.l,
-      ip: r.ip,
-      status,
-      result,
-      latencyMs: 30 + (rand(r.n, 60) | 0),
-      lastCheckedIso: new Date().toISOString(),
-    };
-  });
-}
-
 export function useDnsTroubleshooting(selectedHostname: string | null): DnsFlow {
   const [dnsPolicies, dnsPoliciesLoaded] = useK8sWatchResource<DNSPolicyResource[]>({
     groupVersionKind: DNSPolicyGVK,
@@ -689,8 +637,6 @@ export function useDnsTroubleshooting(selectedHostname: string | null): DnsFlow 
       { id: 'tls-certificate', label: 'TLS certificate', status: (publicDnsStep.status === 'healthy' ? 'healthy' : 'skipped') as StepStatus, details: publicDnsStep.status === 'healthy' ? 'issued' : 'waiting for DNS resolution' },
     ].map((c) => ({ ...c, status: c.status as StepStatus }));
 
-    const resolvers = synthResolvers(hostname, publicDnsStep.status);
-
     const needsDnsPolicy =
       hostnameOptions.length > 0 && gateway !== null && dnsPolicy === null;
 
@@ -739,7 +685,6 @@ export function useDnsTroubleshooting(selectedHostname: string | null): DnsFlow 
       steps,
       events: relevantEvents.slice(-12), // trim to the most recent 12 so the timeline stays scannable
       checks,
-      resolvers,
       loading,
       primaryFailure,
       needsDnsPolicy,

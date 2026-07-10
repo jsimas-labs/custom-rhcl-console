@@ -9,7 +9,6 @@ import {
   EmptyStateBody,
   EmptyStateFooter,
   EmptyStateActions,
-  Alert,
   Spinner,
   Button,
 } from '@patternfly/react-core';
@@ -33,27 +32,22 @@ import { DnsResolver, STATUS_META } from './types';
 import { UseDnsProberResult } from './useDnsProber';
 
 /**
- * Cross-resolver table. Three visual states, mutually exclusive:
+ * Cross-resolver table. Three states, mutually exclusive:
  *
- *   1. **Prober configured + reachable** — renders the real per-resolver
- *      status returned by the companion service. Badge in the header
- *      reads "Live" and shows the last probe timestamp.
+ *   1. **Prober NOT configured** — EmptyState explaining the companion
+ *      service is required, with a link to its install docs.
  *
- *   2. **Prober configured but errored** — inline danger Alert with the
- *      error message, then falls back to the simulated rows so the
- *      page isn't blank. Helps the operator notice their prober is
- *      down.
+ *   2. **Prober configured but errored / empty** — EmptyState with the
+ *      error message. We deliberately do NOT fall back to a simulated
+ *      view here: a fake table pretending to be real is worse than a
+ *      clear "no data" screen.
  *
- *   3. **Prober NOT configured** — replaces the entire body with an
- *      EmptyState explaining that real resolver checks require the
- *      companion service, plus a link to the install docs. The
- *      simulated rows are hidden here on purpose: a "Simulated" badge
- *      was too easy to miss and the customer's first-time impression
- *      was that the data was real.
+ *   3. **Prober configured + reachable + returned rows** — the actual
+ *      per-resolver table. Header carries a green `Live` label and the
+ *      last-probed timestamp.
  */
 
 interface Props {
-  simulatedResolvers: DnsResolver[];
   prober: UseDnsProberResult;
   hostname: string;
 }
@@ -113,8 +107,8 @@ const ResolverRows: React.FC<{ rows: DnsResolver[] }> = ({ rows }) => (
   </Table>
 );
 
-const DNSResolverTable: React.FC<Props> = ({ simulatedResolvers, prober, hostname }) => {
-  // Case 3: prober not configured — full-height empty state.
+const DNSResolverTable: React.FC<Props> = ({ prober, hostname }) => {
+  // Case 1: prober not configured — full-height empty state.
   if (!prober.configured) {
     return (
       <Card aria-label="DNS resolution preview">
@@ -154,9 +148,54 @@ const DNSResolverTable: React.FC<Props> = ({ simulatedResolvers, prober, hostnam
     );
   }
 
-  // Case 1 or 2: prober configured. Header carries "Live" + timestamp
-  // (or a spinner while probing). Errors surface inline; on error we
-  // fall back to the simulated rows so the page isn't blank.
+  // Case 2: prober configured but errored / no rows — EmptyState with
+  // the reason. We deliberately don't fall back to a synthesised view:
+  // a fake table pretending to be real is worse UX than a clear "no
+  // data" screen.
+  if (prober.error || (!prober.loading && (!prober.resolvers || prober.resolvers.length === 0))) {
+    return (
+      <Card aria-label="DNS resolution preview">
+        <CardTitle>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            DNS resolution preview
+            <Tooltip content={prober.error || 'Prober returned no rows'}>
+              <Label color={prober.error ? 'red' : 'grey'} isCompact>
+                {prober.error ? 'Prober error' : 'No data'}
+              </Label>
+            </Tooltip>
+          </span>
+        </CardTitle>
+        <CardBody>
+          <EmptyState
+            titleText={prober.error ? 'DNS Prober is unreachable' : 'No resolver data returned'}
+            headingLevel="h3"
+            icon={ExclamationCircleIcon}
+          >
+            <EmptyStateBody>
+              {prober.error ? (
+                <>
+                  The plugin could not reach the DNS Prober companion service. Check that the
+                  prober pod is healthy and that <code>dnsProberUrl</code> on the plugin
+                  ConfigMap points at a working route.
+                  <div style={{ marginTop: 8, fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, monospace', fontSize: 12 }}>
+                    {prober.error}
+                  </div>
+                </>
+              ) : (
+                <>
+                  The prober responded but returned no rows for{' '}
+                  <code>{hostname || '(none)'}</code>. This can happen right after a hostname
+                  is added — retry once the record has been written at the provider.
+                </>
+              )}
+            </EmptyStateBody>
+          </EmptyState>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  // Case 3: live rows.
   return (
     <Card aria-label="DNS resolution preview">
       <CardTitle>
@@ -166,10 +205,6 @@ const DNSResolverTable: React.FC<Props> = ({ simulatedResolvers, prober, hostnam
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
               <Spinner size="sm" /> probing…
             </span>
-          ) : prober.error ? (
-            <Tooltip content={prober.error}>
-              <Label color="red" isCompact>Prober error</Label>
-            </Tooltip>
           ) : (
             <Tooltip
               content={
@@ -184,13 +219,7 @@ const DNSResolverTable: React.FC<Props> = ({ simulatedResolvers, prober, hostnam
         </span>
       </CardTitle>
       <CardBody>
-        {prober.error && (
-          <Alert variant="danger" isInline title="DNS Prober is unreachable" style={{ marginBottom: 12 }}>
-            {prober.error}. Falling back to a simulated view — cluster-side status only, not real
-            probes.
-          </Alert>
-        )}
-        <ResolverRows rows={prober.resolvers || simulatedResolvers} />
+        <ResolverRows rows={prober.resolvers || []} />
       </CardBody>
     </Card>
   );

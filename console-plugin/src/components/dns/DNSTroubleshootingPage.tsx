@@ -285,11 +285,7 @@ const DNSTroubleshootingPage: React.FC = () => {
       </PageSection>
 
       <PageSection>
-        <DNSResolverTable
-          simulatedResolvers={flow.resolvers}
-          prober={prober}
-          hostname={flow.hostname}
-        />
+        <DNSResolverTable prober={prober} hostname={flow.hostname} />
       </PageSection>
 
       <PageSection>

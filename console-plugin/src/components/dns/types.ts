@@ -123,7 +123,6 @@ export interface DnsFlow {
   steps: DnsStep[];
   events: DnsTimelineEvent[];
   checks: DnsCheck[];
-  resolvers: DnsResolver[];
   /** True while any of the underlying K8s watches is still hydrating. */
   loading: boolean;
   /** The step that most likely explains the current failure — Diagnosis

@@ -220,9 +220,9 @@
 .rhcl-dns-page .rhcl-dns-timeline::before {
   content: '';
   position: absolute;
-  /* Threads through the dot centres: time column 56px + 8px gap = 64px
-     where the 10px dot starts, so its centre is ~69px. */
-  left: 69px;
+  /* Threads through the dot centres: time column 72px + 8px gap = 80px
+     where the 10px dot starts, so its centre is ~85px. */
+  left: 85px;
   top: 4px;
   bottom: 4px;
   width: 1px;
@@ -230,7 +230,10 @@
 }
 .rhcl-dns-page .rhcl-dns-timeline li {
   display: grid;
-  grid-template-columns: 56px 16px 1fr;
+  /* Time column widened from 56px → 72px so "02:20 AM" never wraps to
+     two lines and overlaps the title. Dot column widened to 20px so
+     the row has breathing room even in row-heavy dark-theme fonts. */
+  grid-template-columns: 72px 20px 1fr;
   gap: 8px;
   align-items: start;
 }
@@ -239,6 +242,9 @@
   color: var(--pf-v5-global--Color--200);
   text-align: right;
   padding-top: 2px;
+  /* Belt-and-suspenders — never wrap the timestamp regardless of
+     what the browser's Intl formatter emits ("02:20 AM", "20:20", etc.). */
+  white-space: nowrap;
 }
 .rhcl-dns-page .rhcl-dns-timeline-dot {
   width: 10px;
