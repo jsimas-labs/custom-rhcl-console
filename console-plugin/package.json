@@ -1,6 +1,6 @@
 {
   "name": "custom-rhcl-console",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "description": "Custom console for Red Hat Connectivity Link (RHCL / Kuadrant)",
   "private": true,
   "license": "Apache-2.0",
@@ -78,7 +78,7 @@
   },
   "consolePlugin": {
     "name": "custom-rhcl-console",
-    "version": "0.1.0",
+    "version": "1.3.0",
     "displayName": "Connectivity Link",
     "description": "Custom console for Red Hat Connectivity Link providing operational visibility into Gateways, HTTPRoutes, policies, and API Products.",
     "exposedModules": {

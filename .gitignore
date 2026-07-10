@@ -9,6 +9,7 @@ dist/
 
 # Editor / IDE
 .idea/
+.claude/
 *.swp
 *.swo
 *~
