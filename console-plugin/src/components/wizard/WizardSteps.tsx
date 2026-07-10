@@ -560,11 +560,50 @@ export const BackendStep: React.FC<{ state: WizardState; patch: Patch }> = ({ st
 // ---------------------------------------------------------------------------
 // Step 3 — Gateway
 // ---------------------------------------------------------------------------
+interface GatewayWithListeners extends K8sResourceCommon {
+  spec?: {
+    listeners?: Array<{
+      name?: string;
+      hostname?: string;
+      port?: number;
+      protocol?: string;
+    }>;
+  };
+}
 export const GatewayStep: React.FC<{ state: WizardState; patch: Patch }> = ({ state, patch }) => {
-  const [gateways, gwLoaded] = useK8sWatchResource<K8sResourceCommon[]>({
+  const [gateways, gwLoaded] = useK8sWatchResource<GatewayWithListeners[]>({
     groupVersionKind: GatewayGVK,
     isList: true,
   });
+
+  // Hostnames the selected existing Gateway actually advertises.
+  // Empty when we don't have a Gateway selected or when its listeners
+  // don't declare hostnames (wildcard mode).
+  const selectedGateway = React.useMemo(() => {
+    if (!state.useExistingGateway || !state.existingGatewayName) return null;
+    return (gateways || []).find(
+      (g) =>
+        g.metadata?.name === state.existingGatewayName &&
+        g.metadata?.namespace === state.existingGatewayNamespace,
+    ) || null;
+  }, [gateways, state.useExistingGateway, state.existingGatewayName, state.existingGatewayNamespace]);
+  const gatewayHostnames = React.useMemo(() => {
+    if (!selectedGateway) return [] as string[];
+    const set = new Set<string>();
+    for (const l of selectedGateway.spec?.listeners || []) {
+      if (l.hostname) set.add(l.hostname);
+    }
+    return [...set].sort();
+  }, [selectedGateway]);
+  const hostnameMatchesGateway = React.useMemo(() => {
+    if (!state.hostname) return null;
+    if (gatewayHostnames.length === 0) return null;
+    return gatewayHostnames.some((h) => {
+      if (h === state.hostname) return true;
+      if (h.startsWith('*.') && state.hostname.endsWith(h.slice(1))) return true;
+      return false;
+    });
+  }, [gatewayHostnames, state.hostname]);
   return (
     <>
       <StepHeader
@@ -663,14 +702,54 @@ export const GatewayStep: React.FC<{ state: WizardState; patch: Patch }> = ({ st
 
           <Field
             label="Public hostname"
-            hint="The DNS name consumers will call. Leave empty to inherit the gateway's wildcard."
+            hint={
+              state.useExistingGateway && gatewayHostnames.length > 0
+                ? 'Must match one of the hostnames the selected Gateway already advertises — otherwise the HTTPRoute lands as NoMatchingListenerHostname.'
+                : "The DNS name consumers will call. Leave empty to inherit the gateway's wildcard."
+            }
           >
-            <input
-              className="rhcl-wiz-input"
-              value={state.hostname}
-              placeholder="my-api.apps.example.com"
-              onChange={(e) => patch({ hostname: e.target.value })}
-            />
+            {state.useExistingGateway && gatewayHostnames.length > 0 ? (
+              // On an existing Gateway, showing an open text input is a
+              // trap: the operator types a hostname that doesn't match
+              // any listener, Istio rejects the HTTPRoute with
+              // `NoMatchingListenerHostname`, and nothing works. Enum
+              // the gateway's listener hostnames instead.
+              <>
+                <select
+                  className="rhcl-wiz-select"
+                  value={state.hostname}
+                  onChange={(e) => patch({ hostname: e.target.value })}
+                >
+                  <option value="">Select a listener hostname…</option>
+                  {gatewayHostnames.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
+                  ))}
+                </select>
+                {state.hostname && hostnameMatchesGateway === false && (
+                  <div className="rhcl-wiz-validation error">
+                    <BanIcon /> No listener on{' '}
+                    <code>
+                      {state.existingGatewayNamespace}/{state.existingGatewayName}
+                    </code>{' '}
+                    matches this hostname.
+                  </div>
+                )}
+                {state.hostname && hostnameMatchesGateway === true && (
+                  <div className="rhcl-wiz-validation ok">
+                    <CheckCircleIcon /> Matches a listener on the selected Gateway.
+                  </div>
+                )}
+              </>
+            ) : (
+              <input
+                className="rhcl-wiz-input"
+                value={state.hostname}
+                placeholder="my-api.apps.example.com"
+                onChange={(e) => patch({ hostname: e.target.value })}
+              />
+            )}
           </Field>
         </div>
         <ArchDiagram state={state} />

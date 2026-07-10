@@ -406,7 +406,22 @@ export function genTokenRateLimitPolicy(s: WizardState): GeneratedResource | nul
   };
 }
 
+/**
+ * Skip DNSPolicy / TLSPolicy generation when the wizard is attaching to
+ * an existing Gateway. Reasoning: on shared gateways (openshift-ingress
+ * / rhcl-gateways) the DNS + TLS policies are almost always owned
+ * centrally, one per Gateway. Adding a second policy that targets the
+ * same Gateway lands as `Accepted=False Conflicted` — Kuadrant rejects
+ * the newcomer because only one DNSPolicy / TLSPolicy can win. The
+ * operator's actual intent when picking "attach to existing gateway"
+ * is "inherit its DNS + TLS", not "clone them".
+ */
+function skipGatewayScopedPolicy(s: WizardState): boolean {
+  return s.useExistingGateway;
+}
+
 export function genDNSPolicy(s: WizardState): GeneratedResource | null {
+  if (skipGatewayScopedPolicy(s)) return null;
   if (!s.dnsEnabled) return null;
   const gwName = gatewayName(s);
   if (!gwName) return null;
@@ -436,6 +451,7 @@ export function genDNSPolicy(s: WizardState): GeneratedResource | null {
 }
 
 export function genTLSPolicy(s: WizardState): GeneratedResource | null {
+  if (skipGatewayScopedPolicy(s)) return null;
   if (!s.tlsPolicyEnabled) return null;
   const gwName = gatewayName(s);
   if (!gwName) return null;

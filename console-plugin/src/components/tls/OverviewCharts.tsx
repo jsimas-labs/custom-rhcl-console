@@ -200,10 +200,18 @@ interface HistogramProps {
 }
 
 /**
- * Vertical-columns histogram. Each column is a labelled bar; the total
- * is the sum unless `scaleMax` is passed. Labels below each column.
+ * Vertical-columns histogram. Each bar is an SVG rect that stretches
+ * via `preserveAspectRatio="none"` — but the labels and values live
+ * OUTSIDE the SVG, in a CSS grid beneath / above the bars. Earlier
+ * cuts put labels inside the SVG which then got horizontally squashed
+ * or stretched when the container width changed, so "15-30 min" would
+ * either overflow into the neighbouring column or shrink to unreadable
+ * text. HTML rendering solves both — the browser handles wrapping and
+ * font metrics correctly.
  *
- * Kept small on purpose — a card-sized viz, not a full chart.
+ * `min-height` on the chart guarantees a natural shape on short cards;
+ * `flex: 1` on the SVG lets it grow when a PatternFly Grid row is
+ * stretched taller by a sibling.
  */
 export const Histogram: React.FC<HistogramProps> = ({
   bars,
@@ -212,69 +220,95 @@ export const Histogram: React.FC<HistogramProps> = ({
   scaleMax,
 }) => {
   const max = scaleMax ?? Math.max(1, ...bars.map((b) => b.value));
-  const chartH = height - 40; // reserve space for value + label
   const columnW = 100 / Math.max(1, bars.length);
-  // The SVG owns the viewBox (100 × height) but its rendered size comes
-  // from CSS: `min-height` guarantees the chart doesn't collapse when
-  // the parent is short, `height: 100%` lets it grow when a PatternFly
-  // Grid row stretches the card to match a tall sibling. That way the
-  // Propagation Distribution card fills the same vertical slot as the
-  // Recent Events list next to it instead of leaving a tall empty
-  // strip beneath a short chart.
+  const templateCols = `repeat(${bars.length}, minmax(0, 1fr))`;
   return (
-    <svg
-      width="100%"
-      viewBox={`0 0 100 ${height}`}
-      preserveAspectRatio="none"
-      style={{ display: 'block', width: '100%', height: '100%', minHeight: height }}
+    <div
+      className="rhcl-histogram"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        flex: '1 1 auto',
+        minHeight: height,
+      }}
     >
-      {bars.map((b, i) => {
-        const h = max > 0 ? (b.value / max) * chartH : 0;
-        const y = chartH - h + 8; // 8px top margin for value labels
-        const x = i * columnW + columnW * 0.15;
-        const w = columnW * 0.7;
-        return (
-          <g key={`${b.label}-${i}`}>
-            {showValues && (
-              <text
-                x={x + w / 2}
-                y={y - 4}
-                textAnchor="middle"
-                style={{
-                  fontSize: 8,
-                  fontWeight: 600,
-                  fill: 'var(--pf-t--global--color--regular)',
-                }}
-              >
-                {b.value}
-              </text>
-            )}
+      {showValues && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: templateCols,
+            fontSize: 11,
+            fontWeight: 600,
+            color: 'var(--pf-t--global--color--regular)',
+            textAlign: 'center',
+            height: 16,
+          }}
+        >
+          {bars.map((b, i) => (
+            <span key={`v-${i}`}>{b.value > 0 ? b.value : ''}</span>
+          ))}
+        </div>
+      )}
+      <svg
+        width="100%"
+        viewBox={`0 0 100 100`}
+        preserveAspectRatio="none"
+        style={{
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          minHeight: 100,
+          flex: '1 1 auto',
+        }}
+      >
+        {bars.map((b, i) => {
+          const h = max > 0 ? (b.value / max) * 100 : 0;
+          const y = 100 - h;
+          const x = i * columnW + columnW * 0.15;
+          const w = columnW * 0.7;
+          return (
             <rect
+              key={`bar-${i}`}
               x={x}
               y={y}
               width={w}
               height={h}
-              rx={1.5}
-              ry={1.5}
+              rx={1}
+              ry={1}
               fill={b.color}
               opacity={0.85}
             >
               <title>{`${b.label}: ${b.value}`}</title>
             </rect>
-            <text
-              x={x + w / 2}
-              y={height - 4}
-              textAnchor="middle"
-              style={{
-                fontSize: 6.5,
-                fill: 'var(--pf-v5-global--Color--200)',
-              }}
-            >
-              {b.label}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+          );
+        })}
+      </svg>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: templateCols,
+          fontSize: 10,
+          color: 'var(--pf-v5-global--Color--200)',
+          textAlign: 'center',
+          gap: 2,
+        }}
+      >
+        {bars.map((b, i) => (
+          <span
+            key={`l-${i}`}
+            title={b.label}
+            style={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              padding: '0 2px',
+            }}
+          >
+            {b.label}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 };

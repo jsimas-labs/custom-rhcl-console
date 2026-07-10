@@ -166,7 +166,7 @@
   flex: 1 1 auto;
   min-height: 0;
 }
-.rhcl-dns-overview-page .rhcl-dns-overview-histo-body > svg {
+.rhcl-dns-overview-page .rhcl-dns-overview-histo-body > .rhcl-histogram {
   flex: 1 1 auto;
   min-height: 180px;
 }
