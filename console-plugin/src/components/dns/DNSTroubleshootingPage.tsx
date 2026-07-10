@@ -14,7 +14,6 @@ import {
 } from '@patternfly/react-core';
 import {
   SyncAltIcon,
-  PlayIcon,
   PlusCircleIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
@@ -225,30 +224,24 @@ const DNSTroubleshootingPage: React.FC = () => {
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {/*
-              Both buttons drive the same action: bump the prober nonce.
-              The K8s watches under `useDnsTroubleshooting` update live
-              on their own so nothing needs to force-refresh there.
-              "Refresh" reads as the low-key everyday nudge; "Run all
-              checks" as the deliberate diagnostic pass. Same behaviour,
-              two affordances that match different mental models.
+              One button, one action: bump the prober nonce → the hook's
+              useEffect fires → POST /api/probe with the current
+              hostname + 8-resolver ladder. The K8s watches under
+              useDnsTroubleshooting are already list-watch, so they
+              refresh on their own. Previously there was a "Run all
+              checks" button next to this one that drove the exact same
+              code path — dropped because two buttons for the same
+              behaviour read as "one of them must do more" and there
+              wasn't a real second thing to do.
             */}
             <Button
-              variant="secondary"
+              variant="primary"
               icon={<SyncAltIcon />}
               onClick={runAllChecks}
               isLoading={prober.loading}
               isDisabled={prober.loading}
             >
               {t('Refresh')}
-            </Button>
-            <Button
-              variant="primary"
-              icon={<PlayIcon />}
-              onClick={runAllChecks}
-              isLoading={prober.loading}
-              isDisabled={prober.loading}
-            >
-              {t('Run all checks')}
             </Button>
           </div>
         </div>
