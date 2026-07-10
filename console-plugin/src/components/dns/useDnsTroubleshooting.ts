@@ -514,8 +514,47 @@ export function useDnsTroubleshooting(selectedHostname: string | null): DnsFlow 
     };
 
     // ------- HTTPROUTE step -------
-    const routeAccepted = conditionStatus(httpRoute?.status?.parents?.[0]?.conditions, 'Accepted');
-    const routeResolvedRefs = conditionStatus(httpRoute?.status?.parents?.[0]?.conditions, 'ResolvedRefs');
+    //
+    // A single HTTPRoute can carry multiple entries in `status.parents`,
+    // one per controller that reconciles it. On a Kuadrant-managed route
+    // there are typically two:
+    //   1. The Gateway API controller (Istio / envoy-gateway) — reports
+    //      `Accepted` and `ResolvedRefs` — the canonical route health.
+    //   2. `kuadrant.io/policy-controller` — reports only policy-affected
+    //      conditions (DNSPolicyAffected, AuthPolicyAffected, ...) and
+    //      does NOT emit Accepted/ResolvedRefs at all.
+    //
+    // Reading `parents[0]` blindly picked the Kuadrant parent on real
+    // clusters, whose missing conditions read as "False" and painted the
+    // step Failing even when the route was perfectly healthy. Iterate
+    // all parents and combine with a permissive "any True wins" — if any
+    // controller has accepted the route and resolved its refs, we're
+    // good.
+    const allParentConditions = (httpRoute?.status?.parents || []).flatMap(
+      (p) => p.conditions || [],
+    );
+    const routeAcceptedTrue = allParentConditions.some(
+      (c) => c.type === 'Accepted' && c.status === 'True',
+    );
+    const routeResolvedRefsTrue = allParentConditions.some(
+      (c) => c.type === 'ResolvedRefs' && c.status === 'True',
+    );
+    const routeAcceptedFalse = allParentConditions.find(
+      (c) => c.type === 'Accepted' && c.status === 'False',
+    );
+    const routeResolvedRefsFalse = allParentConditions.find(
+      (c) => c.type === 'ResolvedRefs' && c.status === 'False',
+    );
+    const routeAccepted = routeAcceptedTrue
+      ? { ok: true, message: 'True' }
+      : routeAcceptedFalse
+      ? { ok: false, message: routeAcceptedFalse.message || 'False' }
+      : null;
+    const routeResolvedRefs = routeResolvedRefsTrue
+      ? { ok: true, message: 'True' }
+      : routeResolvedRefsFalse
+      ? { ok: false, message: routeResolvedRefsFalse.message || 'False' }
+      : null;
     const httpRouteStep: DnsStep = {
       id: 'httproute',
       title: 'HTTPRoute',
