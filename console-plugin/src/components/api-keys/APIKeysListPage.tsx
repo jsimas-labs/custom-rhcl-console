@@ -32,9 +32,11 @@ import {
   consoleFetchJSON,
 } from '@openshift-console/dynamic-plugin-sdk';
 import { useTranslation } from 'react-i18next';
+import { PlusCircleIcon } from '@patternfly/react-icons';
 import { APIKeyGVK } from '../../models';
 import { APIKey, getAPIKeyPhase } from '../../types';
 import ResourceActionsMenu from '../common/ResourceActionsMenu';
+import CreateAPIKeyModal from './CreateAPIKeyModal';
 import '../../styles/plugin-glass.css';
 
 /**
@@ -276,15 +278,30 @@ const APIKeysListPage: React.FC = () => {
     );
   }
 
+  const [createOpen, setCreateOpen] = React.useState(false);
+
   return (
     <div className="rhcl-plugin-root">
       <PageSection variant="default">
-        <Title headingLevel="h1">{t('API Keys')}</Title>
-        <p style={{ marginTop: 4, color: 'var(--pf-t--global--color--nonstatus--gray--default)' }}>
-          {t(
-            'Approve, reject and audit API key requests across every API product on the cluster.',
-          )}
-        </p>
+        <Flex alignItems={{ default: 'alignItemsCenter' }}>
+          <FlexItem grow={{ default: 'grow' }}>
+            <Title headingLevel="h1">{t('API Keys')}</Title>
+            <p style={{ marginTop: 4, color: 'var(--pf-t--global--color--nonstatus--gray--default)' }}>
+              {t(
+                'Approve, reject and audit API key requests across every API product on the cluster.',
+              )}
+            </p>
+          </FlexItem>
+          <FlexItem>
+            <Button
+              variant="primary"
+              icon={<PlusCircleIcon />}
+              onClick={() => setCreateOpen(true)}
+            >
+              {t('Create API Key')}
+            </Button>
+          </FlexItem>
+        </Flex>
         <Flex spaceItems={{ default: 'spaceItemsMd' }} style={{ marginTop: 12 }}>
           <FlexItem>
             <Label color="grey" isCompact>
@@ -450,6 +467,11 @@ const APIKeysListPage: React.FC = () => {
           </CardBody>
         </Card>
       </PageSection>
+
+      {/* Create-modal at page scope so it survives the CardBody
+          collapsing when the empty state re-renders. The k8s watch
+          picks up the freshly-created APIKey CR automatically. */}
+      <CreateAPIKeyModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 };
