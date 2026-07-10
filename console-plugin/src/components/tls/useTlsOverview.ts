@@ -115,6 +115,10 @@ export interface TlsCertRow {
     troubleshooting: string;
     certificate: string;
     gateway?: string;
+    /** Console-native YAML editor for the Certificate. */
+    yaml: string;
+    /** Events tab of the Certificate. */
+    events: string;
   };
 }
 
@@ -369,6 +373,8 @@ export function useTlsOverview(): TlsOverviewResult {
           gateway: gatewayName
             ? `/connectivity-link/gateways/${gatewayNamespace}/${gatewayName}`
             : undefined,
+          yaml: `/k8s/ns/${cert.metadata?.namespace}/cert-manager.io~v1~Certificate/${cert.metadata?.name}/yaml`,
+          events: `/k8s/ns/${cert.metadata?.namespace}/cert-manager.io~v1~Certificate/${cert.metadata?.name}/events`,
         },
       });
     }

@@ -107,6 +107,30 @@
   font-weight: 600;
   color: var(--pf-t--global--color--regular);
 }
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-row--clickable {
+  cursor: pointer;
+  padding: 2px 6px;
+  margin: 0 -6px;
+  border-radius: 4px;
+  transition: background 120ms ease-out;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-row--clickable:hover,
+.rhcl-dns-overview-page .rhcl-dns-overview-kpi-row--clickable:focus-visible {
+  background: color-mix(in srgb, var(--pf-t--global--color--brand--default) 8%, transparent);
+  outline: none;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-provider-item--clickable {
+  cursor: pointer;
+  padding: 2px 6px;
+  margin: 0 -6px;
+  border-radius: 4px;
+  transition: background 120ms ease-out;
+}
+.rhcl-dns-overview-page .rhcl-dns-overview-provider-item--clickable:hover,
+.rhcl-dns-overview-page .rhcl-dns-overview-provider-item--clickable:focus-visible {
+  background: color-mix(in srgb, var(--pf-t--global--color--brand--default) 8%, transparent);
+  outline: none;
+}
 
 /* --------- Table --------- */
 .rhcl-dns-overview-page .rhcl-dns-overview-hostname {

@@ -96,6 +96,8 @@ export interface DnsRecordRow {
   namespace: string;
   gatewayName?: string;
   gatewayNamespace?: string;
+  dnsPolicyName?: string;
+  dnsPolicyNamespace?: string;
   recordType: string;
   target: string;
   targets: string[];
@@ -112,6 +114,11 @@ export interface DnsRecordRow {
     troubleshooting: string;
     record: string;
     gateway?: string;
+    dnsPolicy?: string;
+    /** Console-native YAML editor for the DNSRecord. */
+    yaml: string;
+    /** Events tab of the DNSRecord — filtered by involvedObject. */
+    events: string;
   };
 }
 
@@ -183,6 +190,7 @@ export interface DnsOverviewResult {
     gateways: string[];
     providers: string[];
     namespaces: string[];
+    recordTypes: string[];
   };
 }
 
@@ -329,13 +337,17 @@ export function useDnsOverview(): DnsOverviewResult {
         status === 'healthy' ? 'resolved' : status === 'failed' ? 'unresolved' : 'unknown';
       const resolutionPct = status === 'healthy' ? 100 : status === 'failed' ? 0 : 60;
 
+      const recNs = rec.metadata?.namespace || '';
+      const recName = rec.metadata?.name || '';
       rows.push({
-        id: `${rec.metadata?.namespace}/${rec.metadata?.name}`,
+        id: `${recNs}/${recName}`,
         hostname,
-        recordName: rec.metadata?.name || '',
-        namespace: rec.metadata?.namespace || '',
+        recordName: recName,
+        namespace: recNs,
         gatewayName: gw?.metadata?.name,
         gatewayNamespace: gw?.metadata?.namespace,
+        dnsPolicyName: policy?.metadata?.name,
+        dnsPolicyNamespace: policy?.metadata?.namespace,
         recordType,
         target,
         targets,
@@ -347,10 +359,15 @@ export function useDnsOverview(): DnsOverviewResult {
         lastCheckedIso,
         href: {
           troubleshooting: `/connectivity-link/dns/troubleshooting?hostname=${encodeURIComponent(hostname)}`,
-          record: `/k8s/ns/${rec.metadata?.namespace}/kuadrant.io~v1alpha1~DNSRecord/${rec.metadata?.name}`,
+          record: `/k8s/ns/${recNs}/kuadrant.io~v1alpha1~DNSRecord/${recName}`,
           gateway: gw
             ? `/connectivity-link/gateways/${gw.metadata?.namespace}/${gw.metadata?.name}`
             : undefined,
+          dnsPolicy: policy
+            ? `/k8s/ns/${policy.metadata?.namespace}/kuadrant.io~v1~DNSPolicy/${policy.metadata?.name}`
+            : undefined,
+          yaml: `/k8s/ns/${recNs}/kuadrant.io~v1alpha1~DNSRecord/${recName}/yaml`,
+          events: `/k8s/ns/${recNs}/kuadrant.io~v1alpha1~DNSRecord/${recName}/events`,
         },
       });
     }
@@ -508,6 +525,7 @@ export function useDnsOverview(): DnsOverviewResult {
       gateways: [...new Set(rows.map((r) => r.gatewayName).filter(Boolean) as string[])].sort(),
       providers: [...new Set(rows.map((r) => r.providerLabel))].sort(),
       namespaces: [...new Set(rows.map((r) => r.namespace))].sort(),
+      recordTypes: [...new Set(rows.map((r) => r.recordType))].sort(),
     };
 
     return {

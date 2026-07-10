@@ -19,6 +19,10 @@ import {
   Button,
   Progress,
   ProgressSize,
+  Dropdown,
+  DropdownList,
+  DropdownItem,
+  Divider,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import {
@@ -26,8 +30,7 @@ import {
   ExclamationCircleIcon,
   ExclamationTriangleIcon,
   OutlinedQuestionCircleIcon,
-  ExternalLinkAltIcon,
-  ArrowRightIcon,
+  EllipsisVIcon,
   SearchIcon,
 } from '@patternfly/react-icons';
 import { Link } from 'react-router-dom';
@@ -36,6 +39,15 @@ import {
   DnsRecordRow,
   DnsHealthStatus,
 } from './useDnsOverview';
+import { DnsOverviewFilters } from './useDnsOverviewFilters';
+
+/**
+ * Controlled version of the DNS Records table. Filter state lives one
+ * level up (`useDnsOverviewFilters` in the page), so KPI card clicks,
+ * histogram bar clicks, and donut slice clicks can all mutate it, and
+ * the URL query string carries the current scope for bookmark + back-
+ * button behaviour.
+ */
 
 interface Props {
   rows: DnsRecordRow[];
@@ -43,7 +55,17 @@ interface Props {
     gateways: string[];
     providers: string[];
     namespaces: string[];
+    recordTypes: string[];
   };
+  filters: DnsOverviewFilters;
+  onFilterChange: <K extends keyof DnsOverviewFilters>(
+    key: K,
+    value: DnsOverviewFilters[K],
+  ) => void;
+  onClearAll: () => void;
+  /** Called when the user clicks "Re-run checks" on a row. Optional; if
+   *  omitted the item is disabled with a tooltip. */
+  onRerun?: (row: DnsRecordRow) => void;
 }
 
 const STATUS_LABEL: Record<DnsHealthStatus, string> = {
@@ -110,6 +132,99 @@ const FilterSelect: React.FC<{
   );
 };
 
+// --- Row kebab menu -------------------------------------------------
+
+interface RowActionsProps {
+  row: DnsRecordRow;
+  onRerun?: (row: DnsRecordRow) => void;
+}
+
+const RowActions: React.FC<RowActionsProps> = ({ row, onRerun }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  return (
+    <Dropdown
+      isOpen={isOpen}
+      onOpenChange={setIsOpen}
+      onSelect={() => setIsOpen(false)}
+      popperProps={{ position: 'right' }}
+      toggle={(ref: React.Ref<MenuToggleElement>) => (
+        <MenuToggle
+          ref={ref}
+          variant="plain"
+          aria-label={`Actions for ${row.hostname}`}
+          onClick={() => setIsOpen((o) => !o)}
+          isExpanded={isOpen}
+        >
+          <EllipsisVIcon />
+        </MenuToggle>
+      )}
+    >
+      <DropdownList>
+        <DropdownItem
+          key="tshoot"
+          component={(props) => <Link {...props} to={row.href.troubleshooting} />}
+        >
+          Open DNS Troubleshooting
+        </DropdownItem>
+        {row.href.dnsPolicy && (
+          <DropdownItem
+            key="policy"
+            component={(props) => <Link {...props} to={row.href.dnsPolicy!} />}
+          >
+            Open DNSPolicy
+          </DropdownItem>
+        )}
+        {row.href.gateway && (
+          <DropdownItem
+            key="gateway"
+            component={(props) => <Link {...props} to={row.href.gateway!} />}
+          >
+            Open Gateway
+          </DropdownItem>
+        )}
+        {row.href.gateway && (
+          <DropdownItem
+            key="routes"
+            component={(props) => (
+              <Link
+                {...props}
+                to={`/k8s/all-namespaces/gateway.networking.k8s.io~v1~HTTPRoute?parentRef=${encodeURIComponent(row.gatewayName || '')}`}
+              />
+            )}
+          >
+            View related HTTPRoutes
+          </DropdownItem>
+        )}
+        <Divider component="li" key="d1" />
+        <DropdownItem
+          key="events"
+          component={(props) => <Link {...props} to={row.href.events} />}
+        >
+          View events
+        </DropdownItem>
+        <DropdownItem
+          key="yaml"
+          component={(props) => <Link {...props} to={row.href.yaml} />}
+        >
+          View YAML
+        </DropdownItem>
+        <Divider component="li" key="d2" />
+        <DropdownItem
+          key="rerun"
+          isDisabled={!onRerun}
+          onClick={() => onRerun && onRerun(row)}
+          description={!onRerun ? 'Requires dns-prober companion' : undefined}
+        >
+          Re-run resolver checks
+        </DropdownItem>
+      </DropdownList>
+    </Dropdown>
+  );
+};
+
+// --- helpers --------------------------------------------------------
+
 function relAgo(iso?: string): string {
   if (!iso) return '—';
   const t = new Date(iso).getTime();
@@ -123,12 +238,17 @@ function relAgo(iso?: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-const DNSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
-  const [search, setSearch] = React.useState('');
-  const [gateway, setGateway] = React.useState<string | null>(null);
-  const [provider, setProvider] = React.useState<string | null>(null);
-  const [status, setStatus] = React.useState<string | null>(null);
-  const [namespace, setNamespace] = React.useState<string | null>(null);
+// --- Table ----------------------------------------------------------
+
+const DNSOverviewTable: React.FC<Props> = ({
+  rows,
+  filterOptions,
+  filters,
+  onFilterChange,
+  onClearAll,
+  onRerun,
+}) => {
+  const { search, gateway, provider, status, namespace, recordType } = filters;
 
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -141,11 +261,13 @@ const DNSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
       if (provider && r.providerLabel !== provider) return false;
       if (status && r.status !== status) return false;
       if (namespace && r.namespace !== namespace) return false;
+      if (recordType && r.recordType !== recordType) return false;
       return true;
     });
-  }, [rows, search, gateway, provider, status, namespace]);
+  }, [rows, search, gateway, provider, status, namespace, recordType]);
 
   const totalLabel = `${filtered.length}${filtered.length !== rows.length ? ` of ${rows.length}` : ''}`;
+  const hasActiveFilter = !!(search || gateway || provider || status || namespace || recordType);
 
   return (
     <Card aria-label="DNS records" className="rhcl-dns-overview-panel">
@@ -157,28 +279,58 @@ const DNSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
               <SearchInput
                 placeholder="Search hostnames, records, gateways…"
                 value={search}
-                onChange={(_e, v) => setSearch(v)}
-                onClear={() => setSearch('')}
+                onChange={(_e, v) => onFilterChange('search', v)}
+                onClear={() => onFilterChange('search', '')}
                 aria-label="Search"
               />
             </ToolbarItem>
             <ToolbarItem>
-              <FilterSelect label="Gateway" value={gateway} options={filterOptions.gateways} onChange={setGateway} />
+              <FilterSelect
+                label="Gateway"
+                value={gateway}
+                options={filterOptions.gateways}
+                onChange={(v) => onFilterChange('gateway', v)}
+              />
             </ToolbarItem>
             <ToolbarItem>
-              <FilterSelect label="Provider" value={provider} options={filterOptions.providers} onChange={setProvider} />
+              <FilterSelect
+                label="Provider"
+                value={provider}
+                options={filterOptions.providers}
+                onChange={(v) => onFilterChange('provider', v)}
+              />
             </ToolbarItem>
             <ToolbarItem>
               <FilterSelect
                 label="Status"
                 value={status}
                 options={['healthy', 'propagating', 'failed', 'unknown']}
-                onChange={setStatus}
+                onChange={(v) => onFilterChange('status', v)}
               />
             </ToolbarItem>
             <ToolbarItem>
-              <FilterSelect label="Namespace" value={namespace} options={filterOptions.namespaces} onChange={setNamespace} />
+              <FilterSelect
+                label="Type"
+                value={recordType}
+                options={filterOptions.recordTypes}
+                onChange={(v) => onFilterChange('recordType', v)}
+              />
             </ToolbarItem>
+            <ToolbarItem>
+              <FilterSelect
+                label="Namespace"
+                value={namespace}
+                options={filterOptions.namespaces}
+                onChange={(v) => onFilterChange('namespace', v)}
+              />
+            </ToolbarItem>
+            {hasActiveFilter && (
+              <ToolbarItem>
+                <Button variant="link" isInline onClick={onClearAll}>
+                  Clear all filters
+                </Button>
+              </ToolbarItem>
+            )}
           </ToolbarContent>
         </Toolbar>
 
@@ -193,13 +345,17 @@ const DNSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
                 ? 'Create a DNSPolicy to publish DNS records for a Gateway. Once Kuadrant reconciles, records will show up here automatically.'
                 : 'Clear a filter or the search query to see more rows.'}
             </EmptyStateBody>
-            {rows.length === 0 && (
+            {rows.length === 0 ? (
               <Button
                 variant="primary"
                 component={(props) => <Link {...props} to="/connectivity-link/policies/create/dnspolicy" />}
                 style={{ marginTop: 12 }}
               >
                 Create DNSPolicy
+              </Button>
+            ) : (
+              <Button variant="link" onClick={onClearAll} style={{ marginTop: 12 }}>
+                Clear all filters
               </Button>
             )}
           </EmptyState>
@@ -223,17 +379,13 @@ const DNSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
               <Tbody>
                 {filtered.map((r) => {
                   const propColor =
-                    r.propagationPct >= 90
-                      ? STATUS_META.healthy.color
-                      : r.propagationPct >= 40
-                      ? STATUS_META.warning.color
-                      : STATUS_META.failing.color;
+                    r.propagationPct >= 90 ? '#3E8635'
+                    : r.propagationPct >= 40 ? '#F0AB00'
+                    : '#C9190B';
                   const resColor =
-                    r.resolutionPct >= 90
-                      ? STATUS_META.healthy.color
-                      : r.resolutionPct >= 40
-                      ? STATUS_META.warning.color
-                      : STATUS_META.failing.color;
+                    r.resolutionPct >= 90 ? '#3E8635'
+                    : r.resolutionPct >= 40 ? '#F0AB00'
+                    : '#C9190B';
                   return (
                     <Tr key={r.id}>
                       <Td>
@@ -241,7 +393,13 @@ const DNSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
                           {r.hostname}
                         </Link>
                       </Td>
-                      <Td>{r.gatewayName || '—'}</Td>
+                      <Td>
+                        {r.gatewayName && r.href.gateway ? (
+                          <Link to={r.href.gateway}>{r.gatewayName}</Link>
+                        ) : (
+                          '—'
+                        )}
+                      </Td>
                       <Td>{r.recordType}</Td>
                       <Td>
                         <Tooltip content={r.targets.join(', ') || r.target}>
@@ -280,40 +438,19 @@ const DNSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
                             <OutlinedQuestionCircleIcon style={{ color: resColor }} />
                           )}
                           <span style={{ color: resColor, fontWeight: 500 }}>
-                            {r.resolution === 'unknown' ? '—' : `${r.resolutionPct}%`}
+                            {r.resolution === 'unknown' ? 'Not checked' : `${r.resolutionPct}%`}
                           </span>
                         </span>
                       </Td>
                       <Td>
-                        <span style={{ fontSize: 12, color: 'var(--pf-v5-global--Color--200)' }}>
-                          {relAgo(r.lastCheckedIso)}
-                        </span>
+                        <Tooltip content={r.lastCheckedIso ? new Date(r.lastCheckedIso).toLocaleString() : 'never'}>
+                          <span style={{ fontSize: 12, color: 'var(--pf-v5-global--Color--200)' }}>
+                            {relAgo(r.lastCheckedIso)}
+                          </span>
+                        </Tooltip>
                       </Td>
-                      <Td>
-                        <span style={{ display: 'inline-flex', gap: 4 }}>
-                          <Tooltip content="Open DNS Troubleshooting">
-                            <Button
-                              variant="plain"
-                              aria-label="Open troubleshooting"
-                              component={(props) => (
-                                <Link {...props} to={r.href.troubleshooting} />
-                              )}
-                            >
-                              <ArrowRightIcon />
-                            </Button>
-                          </Tooltip>
-                          <Tooltip content="Open DNSRecord">
-                            <Button
-                              variant="plain"
-                              aria-label="Open record"
-                              component={(props) => (
-                                <Link {...props} to={r.href.record} />
-                              )}
-                            >
-                              <ExternalLinkAltIcon />
-                            </Button>
-                          </Tooltip>
-                        </span>
+                      <Td style={{ width: 40 }}>
+                        <RowActions row={r} onRerun={onRerun} />
                       </Td>
                     </Tr>
                   );

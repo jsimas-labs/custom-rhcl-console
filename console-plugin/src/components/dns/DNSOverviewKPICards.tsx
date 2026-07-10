@@ -28,19 +28,41 @@ const COLORS = {
 
 interface Props {
   kpi: DnsKpiCounts;
+  /** Fired when the operator clicks a status pill in a KPI card — the
+   *  page hooks this to the table's status filter. */
+  onStatusClick?: (status: 'healthy' | 'propagating' | 'failed' | 'unknown' | null) => void;
 }
 
-const Row: React.FC<{ label: string; value: number; color?: string }> = ({
-  label,
-  value,
-  color,
-}) => (
-  <div className="rhcl-dns-overview-kpi-row">
-    <span className="rhcl-dns-overview-kpi-swatch" style={{ background: color }} />
-    <span className="rhcl-dns-overview-kpi-row-label">{label}</span>
-    <span className="rhcl-dns-overview-kpi-row-value">{value}</span>
-  </div>
-);
+const Row: React.FC<{
+  label: string;
+  value: number;
+  color?: string;
+  onClick?: () => void;
+}> = ({ label, value, color, onClick }) => {
+  const clickable = !!onClick;
+  return (
+    <div
+      className={`rhcl-dns-overview-kpi-row${clickable ? ' rhcl-dns-overview-kpi-row--clickable' : ''}`}
+      onClick={onClick}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick!();
+              }
+            }
+          : undefined
+      }
+    >
+      <span className="rhcl-dns-overview-kpi-swatch" style={{ background: color }} />
+      <span className="rhcl-dns-overview-kpi-row-label">{label}</span>
+      <span className="rhcl-dns-overview-kpi-row-value">{value}</span>
+    </div>
+  );
+};
 
 const CardShell: React.FC<{
   title: string;
@@ -58,8 +80,10 @@ const CardShell: React.FC<{
   </Card>
 );
 
-const DNSOverviewKPICards: React.FC<Props> = ({ kpi }) => {
+const DNSOverviewKPICards: React.FC<Props> = ({ kpi, onStatusClick }) => {
   const { overall, propagation, publicResolution, providerSync } = kpi;
+  const click = (s: 'healthy' | 'propagating' | 'failed' | 'unknown') =>
+    onStatusClick ? () => onStatusClick(s) : undefined;
 
   const overallSegments: DonutSlice[] = [
     { label: 'Healthy', value: overall.healthy, color: COLORS.healthy },
@@ -86,10 +110,10 @@ const DNSOverviewKPICards: React.FC<Props> = ({ kpi }) => {
               strokeWidth={16}
             />
             <div className="rhcl-dns-overview-kpi-rows">
-              <Row label={`Healthy · ${pct(overall.healthy)}`} value={overall.healthy} color={COLORS.healthy} />
-              <Row label={`Propagating · ${pct(overall.propagating)}`} value={overall.propagating} color={COLORS.propagating} />
-              <Row label={`Failed · ${pct(overall.failed)}`} value={overall.failed} color={COLORS.failed} />
-              <Row label={`Unknown · ${pct(overall.unknown)}`} value={overall.unknown} color={COLORS.unknown} />
+              <Row label={`Healthy · ${pct(overall.healthy)}`} value={overall.healthy} color={COLORS.healthy} onClick={click('healthy')} />
+              <Row label={`Propagating · ${pct(overall.propagating)}`} value={overall.propagating} color={COLORS.propagating} onClick={click('propagating')} />
+              <Row label={`Failed · ${pct(overall.failed)}`} value={overall.failed} color={COLORS.failed} onClick={click('failed')} />
+              <Row label={`Unknown · ${pct(overall.unknown)}`} value={overall.unknown} color={COLORS.unknown} onClick={click('unknown')} />
             </div>
           </div>
         </CardShell>

@@ -91,9 +91,10 @@ export const DNSOverviewPropagation: React.FC<PropProps> = ({ buckets }) => {
 
 interface ProvProps {
   slices: ProviderSlice[];
+  onProviderClick?: (provider: string) => void;
 }
 
-export const DNSOverviewProviders: React.FC<ProvProps> = ({ slices }) => {
+export const DNSOverviewProviders: React.FC<ProvProps> = ({ slices, onProviderClick }) => {
   const total = slices.reduce((acc, s) => acc + s.count, 0);
   const segments = slices.map((s, i) => ({
     label: s.label,
@@ -118,18 +119,37 @@ export const DNSOverviewProviders: React.FC<ProvProps> = ({ slices }) => {
               strokeWidth={20}
             />
             <ul className="rhcl-dns-overview-provider-legend">
-              {segments.map((s) => (
-                <li key={s.label}>
-                  <span className="rhcl-dns-overview-swatch" style={{ background: s.color }} />
-                  <span className="rhcl-dns-overview-provider-label">{s.label}</span>
-                  <span className="rhcl-dns-overview-provider-count">
-                    {s.value}
-                    <span className="rhcl-dns-overview-provider-pct">
-                      {' '}· {Math.round((s.value / total) * 100)}%
+              {segments.map((s) => {
+                const clickable = !!onProviderClick;
+                return (
+                  <li
+                    key={s.label}
+                    className={clickable ? 'rhcl-dns-overview-provider-item--clickable' : undefined}
+                    onClick={clickable ? () => onProviderClick!(s.label) : undefined}
+                    role={clickable ? 'button' : undefined}
+                    tabIndex={clickable ? 0 : undefined}
+                    onKeyDown={
+                      clickable
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              onProviderClick!(s.label);
+                            }
+                          }
+                        : undefined
+                    }
+                  >
+                    <span className="rhcl-dns-overview-swatch" style={{ background: s.color }} />
+                    <span className="rhcl-dns-overview-provider-label">{s.label}</span>
+                    <span className="rhcl-dns-overview-provider-count">
+                      {s.value}
+                      <span className="rhcl-dns-overview-provider-pct">
+                        {' '}· {Math.round((s.value / total) * 100)}%
+                      </span>
                     </span>
-                  </span>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

@@ -13,8 +13,10 @@ import {
 import { SyncAltIcon, ExternalLinkAltIcon, LockIcon } from '@patternfly/react-icons';
 import { Link } from 'react-router-dom';
 import { useTlsOverview } from './useTlsOverview';
+import { useTlsOverviewFilters } from './useTlsOverviewFilters';
 import TLSOverviewKPICards from './TLSOverviewKPICards';
 import TLSOverviewTable from './TLSOverviewTable';
+import TLSOverviewCallout from './TLSOverviewCallout';
 import {
   TLSOverviewExpiration,
   TLSOverviewIssuers,
@@ -43,6 +45,7 @@ const TLSOverviewPage: React.FC = () => {
   const [tick, setTick] = React.useState(0);
   void tick;
   const overview = useTlsOverview();
+  const { filters, applyOne, clearAll } = useTlsOverviewFilters();
 
   const refresh = React.useCallback(() => setTick((k) => k + 1), []);
 
@@ -109,7 +112,18 @@ const TLSOverviewPage: React.FC = () => {
 
       {/* 5 KPI cards */}
       <PageSection>
-        <TLSOverviewKPICards kpi={overview.kpi} />
+        <TLSOverviewKPICards
+          kpi={overview.kpi}
+          onStatusClick={(s) => applyOne('status', s)}
+        />
+      </PageSection>
+
+      <PageSection>
+        <TLSOverviewCallout
+          kpi={overview.kpi}
+          onReviewFailed={() => applyOne('status', 'expired')}
+          onReviewExpiring={() => applyOne('status', 'expiring')}
+        />
       </PageSection>
 
       {/* Table */}
@@ -117,6 +131,9 @@ const TLSOverviewPage: React.FC = () => {
         <TLSOverviewTable
           rows={overview.rows}
           filterOptions={overview.filters}
+          filters={filters}
+          onFilterChange={applyOne}
+          onClearAll={clearAll}
         />
       </PageSection>
 
@@ -127,7 +144,10 @@ const TLSOverviewPage: React.FC = () => {
             <TLSOverviewExpiration buckets={overview.expirationBuckets} />
           </GridItem>
           <GridItem lg={4} md={12}>
-            <TLSOverviewIssuers slices={overview.issuerSlices} />
+            <TLSOverviewIssuers
+              slices={overview.issuerSlices}
+              onIssuerClick={(iss) => applyOne('issuer', iss)}
+            />
           </GridItem>
           <GridItem lg={4} md={12}>
             <TLSOverviewRecentEvents events={overview.recentEvents} />

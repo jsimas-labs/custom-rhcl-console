@@ -101,9 +101,10 @@ export const TLSOverviewExpiration: React.FC<ExpirationProps> = ({ buckets }) =>
 
 interface IssuersProps {
   slices: IssuerSlice[];
+  onIssuerClick?: (issuer: string) => void;
 }
 
-export const TLSOverviewIssuers: React.FC<IssuersProps> = ({ slices }) => {
+export const TLSOverviewIssuers: React.FC<IssuersProps> = ({ slices, onIssuerClick }) => {
   const total = slices.reduce((acc, s) => acc + s.count, 0);
   const segments = slices.map((s, i) => ({
     label: s.label,
@@ -135,22 +136,41 @@ export const TLSOverviewIssuers: React.FC<IssuersProps> = ({ slices }) => {
               strokeWidth={20}
             />
             <ul className="rhcl-tls-overview-issuer-legend">
-              {segments.map((s) => (
-                <li key={s.label}>
-                  <span
-                    className="rhcl-tls-overview-swatch"
-                    style={{ background: s.color }}
-                  />
-                  <span className="rhcl-tls-overview-issuer-label">{s.label}</span>
-                  <span className="rhcl-tls-overview-issuer-count">
-                    {s.value}
-                    <span className="rhcl-tls-overview-issuer-pct">
-                      {' '}
-                      · {Math.round((s.value / total) * 100)}%
+              {segments.map((s) => {
+                const clickable = !!onIssuerClick;
+                return (
+                  <li
+                    key={s.label}
+                    className={clickable ? 'rhcl-tls-overview-issuer-item--clickable' : undefined}
+                    onClick={clickable ? () => onIssuerClick!(s.label) : undefined}
+                    role={clickable ? 'button' : undefined}
+                    tabIndex={clickable ? 0 : undefined}
+                    onKeyDown={
+                      clickable
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              onIssuerClick!(s.label);
+                            }
+                          }
+                        : undefined
+                    }
+                  >
+                    <span
+                      className="rhcl-tls-overview-swatch"
+                      style={{ background: s.color }}
+                    />
+                    <span className="rhcl-tls-overview-issuer-label">{s.label}</span>
+                    <span className="rhcl-tls-overview-issuer-count">
+                      {s.value}
+                      <span className="rhcl-tls-overview-issuer-pct">
+                        {' '}
+                        · {Math.round((s.value / total) * 100)}%
+                      </span>
                     </span>
-                  </span>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

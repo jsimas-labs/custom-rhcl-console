@@ -38,19 +38,39 @@ const COLORS = {
 
 interface Props {
   kpi: KpiCounts;
+  onStatusClick?: (status: 'healthy' | 'expiring' | 'expired' | 'error' | null) => void;
 }
 
-const Row: React.FC<{ label: string; value: number; color?: string }> = ({
-  label,
-  value,
-  color,
-}) => (
-  <div className="rhcl-tls-overview-kpi-row">
-    <span className="rhcl-tls-overview-kpi-swatch" style={{ background: color }} />
-    <span className="rhcl-tls-overview-kpi-row-label">{label}</span>
-    <span className="rhcl-tls-overview-kpi-row-value">{value}</span>
-  </div>
-);
+const Row: React.FC<{
+  label: string;
+  value: number;
+  color?: string;
+  onClick?: () => void;
+}> = ({ label, value, color, onClick }) => {
+  const clickable = !!onClick;
+  return (
+    <div
+      className={`rhcl-tls-overview-kpi-row${clickable ? ' rhcl-tls-overview-kpi-row--clickable' : ''}`}
+      onClick={onClick}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick!();
+              }
+            }
+          : undefined
+      }
+    >
+      <span className="rhcl-tls-overview-kpi-swatch" style={{ background: color }} />
+      <span className="rhcl-tls-overview-kpi-row-label">{label}</span>
+      <span className="rhcl-tls-overview-kpi-row-value">{value}</span>
+    </div>
+  );
+};
 
 const CardShell: React.FC<{
   title: string;
@@ -68,8 +88,10 @@ const CardShell: React.FC<{
   </Card>
 );
 
-const TLSOverviewKPICards: React.FC<Props> = ({ kpi }) => {
+const TLSOverviewKPICards: React.FC<Props> = ({ kpi, onStatusClick }) => {
   const { overall, renewal, expiringSoon, handshake } = kpi;
+  const click = (s: 'healthy' | 'expiring' | 'expired' | 'error') =>
+    onStatusClick ? () => onStatusClick(s) : undefined;
 
   const overallSegments: DonutSlice[] = [
     { label: 'Healthy', value: overall.healthy, color: COLORS.healthy },
@@ -97,10 +119,10 @@ const TLSOverviewKPICards: React.FC<Props> = ({ kpi }) => {
               strokeWidth={16}
             />
             <div className="rhcl-tls-overview-kpi-rows">
-              <Row label={`Healthy · ${pct(overall.healthy)}`} value={overall.healthy} color={COLORS.healthy} />
-              <Row label={`Expiring · ${pct(overall.expiring)}`} value={overall.expiring} color={COLORS.expiring} />
-              <Row label={`Expired · ${pct(overall.expired)}`} value={overall.expired} color={COLORS.expired} />
-              <Row label={`Error · ${pct(overall.error)}`} value={overall.error} color={COLORS.error} />
+              <Row label={`Healthy · ${pct(overall.healthy)}`} value={overall.healthy} color={COLORS.healthy} onClick={click('healthy')} />
+              <Row label={`Expiring · ${pct(overall.expiring)}`} value={overall.expiring} color={COLORS.expiring} onClick={click('expiring')} />
+              <Row label={`Expired · ${pct(overall.expired)}`} value={overall.expired} color={COLORS.expired} onClick={click('expired')} />
+              <Row label={`Error · ${pct(overall.error)}`} value={overall.error} color={COLORS.error} onClick={click('error')} />
             </div>
           </div>
         </CardShell>

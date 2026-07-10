@@ -17,6 +17,10 @@ import {
   EmptyState,
   EmptyStateBody,
   Button,
+  Dropdown,
+  DropdownList,
+  DropdownItem,
+  Divider,
 } from '@patternfly/react-core';
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import {
@@ -24,8 +28,7 @@ import {
   ExclamationCircleIcon,
   ExclamationTriangleIcon,
   OutlinedQuestionCircleIcon,
-  ExternalLinkAltIcon,
-  ArrowRightIcon,
+  EllipsisVIcon,
   SearchIcon,
 } from '@patternfly/react-icons';
 import { Link } from 'react-router-dom';
@@ -36,17 +39,7 @@ import {
   RenewalStatus,
   HandshakeStatus,
 } from './useTlsOverview';
-
-/**
- * Primary navigation surface of the TLS Overview. One row per
- * Certificate. Each row is a shortcut into TLS Troubleshooting (the
- * deep debugging page) plus two secondary quick-links.
- *
- * Toolbar sits inside the card so filters and search feel like part of
- * the table rather than orphaned above it. All filtering is client-
- * side — the whole cert list is already in memory from the watch, and
- * this way filter state is instant with no re-fetch.
- */
+import { TlsOverviewFilters } from './useTlsOverviewFilters';
 
 interface Props {
   rows: TlsCertRow[];
@@ -55,6 +48,13 @@ interface Props {
     issuers: string[];
     namespaces: string[];
   };
+  filters: TlsOverviewFilters;
+  onFilterChange: <K extends keyof TlsOverviewFilters>(
+    key: K,
+    value: TlsOverviewFilters[K],
+  ) => void;
+  onClearAll: () => void;
+  onRerun?: (row: TlsCertRow) => void;
 }
 
 const STATUS_LABEL: Record<CertHealthStatus, string> = {
@@ -75,14 +75,12 @@ const STATUS_ICON: Record<CertHealthStatus, React.ReactNode> = {
   expired: <ExclamationCircleIcon style={{ color: STATUS_META.failing.color }} />,
   error: <OutlinedQuestionCircleIcon style={{ color: STATUS_META.unknown.color }} />,
 };
-
 const RENEWAL_META: Record<RenewalStatus, { label: string; color: string }> = {
   scheduled: { label: 'Scheduled', color: STATUS_META.healthy.color },
   'not-scheduled': { label: 'Not Scheduled', color: STATUS_META.warning.color },
   failed: { label: 'Failed', color: STATUS_META.failing.color },
   unknown: { label: 'Unknown', color: STATUS_META.unknown.color },
 };
-
 const HANDSHAKE_META: Record<HandshakeStatus, { label: string; color: string }> = {
   ok: { label: 'OK', color: STATUS_META.healthy.color },
   failed: { label: 'Failed', color: STATUS_META.failing.color },
@@ -134,12 +132,88 @@ const FilterSelect: React.FC<{
   );
 };
 
-const TLSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
-  const [search, setSearch] = React.useState('');
-  const [gateway, setGateway] = React.useState<string | null>(null);
-  const [issuer, setIssuer] = React.useState<string | null>(null);
-  const [status, setStatus] = React.useState<string | null>(null);
-  const [namespace, setNamespace] = React.useState<string | null>(null);
+interface RowActionsProps {
+  row: TlsCertRow;
+  onRerun?: (row: TlsCertRow) => void;
+}
+
+const RowActions: React.FC<RowActionsProps> = ({ row, onRerun }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+  return (
+    <Dropdown
+      isOpen={isOpen}
+      onOpenChange={setIsOpen}
+      onSelect={() => setIsOpen(false)}
+      popperProps={{ position: 'right' }}
+      toggle={(ref: React.Ref<MenuToggleElement>) => (
+        <MenuToggle
+          ref={ref}
+          variant="plain"
+          aria-label={`Actions for ${row.hostname}`}
+          onClick={() => setIsOpen((o) => !o)}
+          isExpanded={isOpen}
+        >
+          <EllipsisVIcon />
+        </MenuToggle>
+      )}
+    >
+      <DropdownList>
+        <DropdownItem
+          key="tshoot"
+          component={(props) => <Link {...props} to={row.href.troubleshooting} />}
+        >
+          Open TLS Troubleshooting
+        </DropdownItem>
+        <DropdownItem
+          key="cert"
+          component={(props) => <Link {...props} to={row.href.certificate} />}
+        >
+          Open Certificate
+        </DropdownItem>
+        {row.href.gateway && (
+          <DropdownItem
+            key="gateway"
+            component={(props) => <Link {...props} to={row.href.gateway!} />}
+          >
+            Open Gateway
+          </DropdownItem>
+        )}
+        <Divider component="li" key="d1" />
+        <DropdownItem
+          key="events"
+          component={(props) => <Link {...props} to={row.href.events} />}
+        >
+          View events
+        </DropdownItem>
+        <DropdownItem
+          key="yaml"
+          component={(props) => <Link {...props} to={row.href.yaml} />}
+        >
+          View YAML
+        </DropdownItem>
+        <Divider component="li" key="d2" />
+        <DropdownItem
+          key="rerun"
+          isDisabled={!onRerun}
+          onClick={() => onRerun && onRerun(row)}
+          description={!onRerun ? 'Requires the tls-prober endpoint' : undefined}
+        >
+          Re-run HTTPS check
+        </DropdownItem>
+      </DropdownList>
+    </Dropdown>
+  );
+};
+
+const TLSOverviewTable: React.FC<Props> = ({
+  rows,
+  filterOptions,
+  filters,
+  onFilterChange,
+  onClearAll,
+  onRerun,
+}) => {
+  const { search, gateway, issuer, status, namespace } = filters;
 
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -158,20 +232,11 @@ const TLSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
   }, [rows, search, gateway, issuer, status, namespace]);
 
   const totalLabel = `${filtered.length}${filtered.length !== rows.length ? ` of ${rows.length}` : ''}`;
+  const hasActiveFilter = !!(search || gateway || issuer || status || namespace);
 
   return (
     <Card aria-label="TLS certificates" className="rhcl-tls-overview-panel">
-      <CardTitle>
-        <span
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <span>TLS Certificates ({totalLabel})</span>
-        </span>
-      </CardTitle>
+      <CardTitle>TLS Certificates ({totalLabel})</CardTitle>
       <CardBody>
         <Toolbar>
           <ToolbarContent>
@@ -179,43 +244,35 @@ const TLSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
               <SearchInput
                 placeholder="Search hostnames, certificates, gateways…"
                 value={search}
-                onChange={(_e, v) => setSearch(v)}
-                onClear={() => setSearch('')}
+                onChange={(_e, v) => onFilterChange('search', v)}
+                onClear={() => onFilterChange('search', '')}
                 aria-label="Search"
               />
             </ToolbarItem>
             <ToolbarItem>
-              <FilterSelect
-                label="Gateway"
-                value={gateway}
-                options={filterOptions.gateways}
-                onChange={setGateway}
-              />
+              <FilterSelect label="Gateway" value={gateway} options={filterOptions.gateways} onChange={(v) => onFilterChange('gateway', v)} />
             </ToolbarItem>
             <ToolbarItem>
-              <FilterSelect
-                label="Issuer"
-                value={issuer}
-                options={filterOptions.issuers}
-                onChange={setIssuer}
-              />
+              <FilterSelect label="Issuer" value={issuer} options={filterOptions.issuers} onChange={(v) => onFilterChange('issuer', v)} />
             </ToolbarItem>
             <ToolbarItem>
               <FilterSelect
                 label="Status"
                 value={status}
                 options={['healthy', 'expiring', 'expired', 'error']}
-                onChange={setStatus}
+                onChange={(v) => onFilterChange('status', v)}
               />
             </ToolbarItem>
             <ToolbarItem>
-              <FilterSelect
-                label="Namespace"
-                value={namespace}
-                options={filterOptions.namespaces}
-                onChange={setNamespace}
-              />
+              <FilterSelect label="Namespace" value={namespace} options={filterOptions.namespaces} onChange={(v) => onFilterChange('namespace', v)} />
             </ToolbarItem>
+            {hasActiveFilter && (
+              <ToolbarItem>
+                <Button variant="link" isInline onClick={onClearAll}>
+                  Clear all filters
+                </Button>
+              </ToolbarItem>
+            )}
           </ToolbarContent>
         </Toolbar>
 
@@ -230,13 +287,17 @@ const TLSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
                 ? 'Create a TLSPolicy to publish certificates for a Gateway. Once cert-manager finishes issuing, they will show up here automatically.'
                 : 'Clear a filter or the search query to see more rows.'}
             </EmptyStateBody>
-            {rows.length === 0 && (
+            {rows.length === 0 ? (
               <Button
                 variant="primary"
                 component={(props) => <Link {...props} to="/connectivity-link/policies/create/tlspolicy" />}
                 style={{ marginTop: 12 }}
               >
                 Create TLSPolicy
+              </Button>
+            ) : (
+              <Button variant="link" onClick={onClearAll} style={{ marginTop: 12 }}>
+                Clear all filters
               </Button>
             )}
           </EmptyState>
@@ -260,15 +321,11 @@ const TLSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
               <Tbody>
                 {filtered.map((r) => {
                   const daysColor =
-                    r.daysRemaining == null
-                      ? undefined
-                      : r.daysRemaining < 0
-                      ? STATUS_META.failing.color
-                      : r.daysRemaining < 7
-                      ? STATUS_META.failing.color
-                      : r.daysRemaining < 30
-                      ? STATUS_META.warning.color
-                      : STATUS_META.healthy.color;
+                    r.daysRemaining == null ? undefined
+                    : r.daysRemaining < 0 ? '#C9190B'
+                    : r.daysRemaining < 7 ? '#C9190B'
+                    : r.daysRemaining < 30 ? '#F0AB00'
+                    : '#3E8635';
                   return (
                     <Tr key={r.id}>
                       <Td>
@@ -276,7 +333,13 @@ const TLSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
                           {r.hostname}
                         </Link>
                       </Td>
-                      <Td>{r.gatewayName || '—'}</Td>
+                      <Td>
+                        {r.gatewayName && r.href.gateway ? (
+                          <Link to={r.href.gateway}>{r.gatewayName}</Link>
+                        ) : (
+                          '—'
+                        )}
+                      </Td>
                       <Td>{r.certificateName}</Td>
                       <Td>
                         <Tooltip content={r.issuerName || r.issuerLabel}>
@@ -298,10 +361,8 @@ const TLSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
                           : '—'}
                       </Td>
                       <Td style={{ color: daysColor, fontWeight: 500 }}>
-                        {r.daysRemaining == null
-                          ? '—'
-                          : r.daysRemaining < 0
-                          ? `-${Math.abs(r.daysRemaining)} days`
+                        {r.daysRemaining == null ? '—'
+                          : r.daysRemaining < 0 ? `-${Math.abs(r.daysRemaining)} days`
                           : `${r.daysRemaining} days`}
                       </Td>
                       <Td>
@@ -330,31 +391,8 @@ const TLSOverviewTable: React.FC<Props> = ({ rows, filterOptions }) => {
                           {HANDSHAKE_META[r.handshake].label}
                         </span>
                       </Td>
-                      <Td>
-                        <span style={{ display: 'inline-flex', gap: 4 }}>
-                          <Tooltip content="Open TLS Troubleshooting">
-                            <Button
-                              variant="plain"
-                              aria-label="Open troubleshooting"
-                              component={(props) => (
-                                <Link {...props} to={r.href.troubleshooting} />
-                              )}
-                            >
-                              <ArrowRightIcon />
-                            </Button>
-                          </Tooltip>
-                          <Tooltip content="Open Certificate">
-                            <Button
-                              variant="plain"
-                              aria-label="Open certificate"
-                              component={(props) => (
-                                <Link {...props} to={r.href.certificate} />
-                              )}
-                            >
-                              <ExternalLinkAltIcon />
-                            </Button>
-                          </Tooltip>
-                        </span>
+                      <Td style={{ width: 40 }}>
+                        <RowActions row={r} onRerun={onRerun} />
                       </Td>
                     </Tr>
                   );

@@ -106,6 +106,30 @@
   font-weight: 600;
   color: var(--pf-t--global--color--regular);
 }
+.rhcl-tls-overview-page .rhcl-tls-overview-kpi-row--clickable {
+  cursor: pointer;
+  padding: 2px 6px;
+  margin: 0 -6px;
+  border-radius: 4px;
+  transition: background 120ms ease-out;
+}
+.rhcl-tls-overview-page .rhcl-tls-overview-kpi-row--clickable:hover,
+.rhcl-tls-overview-page .rhcl-tls-overview-kpi-row--clickable:focus-visible {
+  background: color-mix(in srgb, var(--pf-t--global--color--brand--default) 8%, transparent);
+  outline: none;
+}
+.rhcl-tls-overview-page .rhcl-tls-overview-issuer-item--clickable {
+  cursor: pointer;
+  padding: 2px 6px;
+  margin: 0 -6px;
+  border-radius: 4px;
+  transition: background 120ms ease-out;
+}
+.rhcl-tls-overview-page .rhcl-tls-overview-issuer-item--clickable:hover,
+.rhcl-tls-overview-page .rhcl-tls-overview-issuer-item--clickable:focus-visible {
+  background: color-mix(in srgb, var(--pf-t--global--color--brand--default) 8%, transparent);
+  outline: none;
+}
 
 /* --------- Table header --------- */
 .rhcl-tls-overview-page .rhcl-tls-overview-hostname {

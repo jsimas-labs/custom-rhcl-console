@@ -13,6 +13,8 @@ import {
 import { SyncAltIcon, ExternalLinkAltIcon, GlobeIcon } from '@patternfly/react-icons';
 import { Link } from 'react-router-dom';
 import { useDnsOverview } from './useDnsOverview';
+import { useDnsOverviewFilters } from './useDnsOverviewFilters';
+import DNSOverviewCallout from './DNSOverviewCallout';
 import DNSOverviewKPICards from './DNSOverviewKPICards';
 import DNSOverviewTable from './DNSOverviewTable';
 import {
@@ -24,17 +26,25 @@ import {
 import './dns-overview.css';
 
 /**
- * DNS operational control tower. Same 3-tier structure as the TLS
- * Overview: KPI cards → filterable records table → 4 bottom widgets.
+ * DNS operational control tower. Filter state lives at the page level
+ * so:
  *
- * The DNS Records table is the primary navigation surface: click a
- * hostname to drill into DNS Troubleshooting for that record.
+ *   - KPI card legend rows filter the table by status
+ *   - Top Providers donut slices filter by provider
+ *   - the Needs Attention callout's "Review failed records" jumps
+ *     straight to status=failed
+ *   - the URL query string (?search=…&status=…&provider=…) carries
+ *     the current scope for bookmarking and back-button behaviour
+ *
+ * The DNS Records table is the primary drill-down surface: click a
+ * hostname to open DNS Troubleshooting for that record.
  */
 
 const DNSOverviewPage: React.FC = () => {
   const [tick, setTick] = React.useState(0);
   void tick;
   const overview = useDnsOverview();
+  const { filters, applyOne, clearAll } = useDnsOverviewFilters();
 
   const refresh = React.useCallback(() => setTick((k) => k + 1), []);
 
@@ -50,9 +60,9 @@ const DNSOverviewPage: React.FC = () => {
     );
   }
 
-  // Pick a representative hostname for the resolver widget — first row
-  // (which is worst-status-first after sort). Falls back to the healthy
-  // one if the failing rows lack a hostname (should never happen).
+  // Sample hostname for the resolver widget. Prefer the currently
+  // filtered scope's first row so a scoped view probes something
+  // relevant.
   const sampleHostname =
     overview.rows.find((r) => r.status === 'healthy')?.hostname ||
     overview.rows[0]?.hostname ||
@@ -99,11 +109,27 @@ const DNSOverviewPage: React.FC = () => {
       </PageSection>
 
       <PageSection>
-        <DNSOverviewKPICards kpi={overview.kpi} />
+        <DNSOverviewKPICards
+          kpi={overview.kpi}
+          onStatusClick={(s) => applyOne('status', s)}
+        />
       </PageSection>
 
       <PageSection>
-        <DNSOverviewTable rows={overview.rows} filterOptions={overview.filters} />
+        <DNSOverviewCallout
+          kpi={overview.kpi}
+          onReviewFailed={() => applyOne('status', 'failed')}
+        />
+      </PageSection>
+
+      <PageSection>
+        <DNSOverviewTable
+          rows={overview.rows}
+          filterOptions={overview.filters}
+          filters={filters}
+          onFilterChange={applyOne}
+          onClearAll={clearAll}
+        />
       </PageSection>
 
       <PageSection>
@@ -112,7 +138,10 @@ const DNSOverviewPage: React.FC = () => {
             <DNSOverviewPropagation buckets={overview.propagationBuckets} />
           </GridItem>
           <GridItem lg={3} md={12}>
-            <DNSOverviewProviders slices={overview.providerSlices} />
+            <DNSOverviewProviders
+              slices={overview.providerSlices}
+              onProviderClick={(p) => applyOne('provider', p)}
+            />
           </GridItem>
           <GridItem lg={3} md={12}>
             <DNSOverviewResolverResolution sampleHostname={sampleHostname} />
