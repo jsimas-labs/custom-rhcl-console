@@ -88,7 +88,7 @@ const DNSTroubleshootingPage: React.FC = () => {
     return (
       <div className="rhcl-plugin-root rhcl-dns-page">
         <PageSection variant="default">
-          <Title headingLevel="h1">{t('DNS Troubleshooting')}</Title>
+          <Title headingLevel="h1">{t('DNS')}</Title>
         </PageSection>
         <PageSection isFilled>
           <Bullseye>
@@ -109,7 +109,7 @@ const DNSTroubleshootingPage: React.FC = () => {
     return (
       <div className="rhcl-plugin-root rhcl-dns-page">
         <PageSection variant="default">
-          <Title headingLevel="h1">{t('DNS Troubleshooting')}</Title>
+          <Title headingLevel="h1">{t('DNS')}</Title>
         </PageSection>
         <PageSection isFilled>
           <Bullseye>
@@ -187,7 +187,7 @@ const DNSTroubleshootingPage: React.FC = () => {
       <PageSection variant="default">
         <div className="rhcl-dns-header">
           <div className="rhcl-dns-header-left">
-            <Title headingLevel="h1">{t('DNS Troubleshooting')}</Title>
+            <Title headingLevel="h1">{t('DNS')}</Title>
             <div style={{ fontSize: 14, color: 'var(--pf-v5-global--Color--200)' }}>
               {t('Visualize and debug DNS connectivity for your Kuadrant gateways.')}
             </div>
