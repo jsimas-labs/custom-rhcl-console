@@ -140,6 +140,15 @@ export interface DnsFlow {
   /** The Gateway that needs a DNSPolicy — surfaced so the empty-state
    *  CTA can pre-fill `targetRef.name` on the Create modal. */
   targetGateway: { name: string; namespace: string } | null;
+  /** True when the DNSRecord CR has endpoints written by more than one
+   *  cluster (`status.endpoints[].labels.owner` set contains more than
+   *  our own ownerID). Multi-cluster deployments publishing the same
+   *  hostname (Global Load Balancer topologies) light this up. Kept in
+   *  the flow so consumers other than the Provider card (the resolver
+   *  preview map, for example) can key their copy off the same signal
+   *  instead of guessing "multiple IPs means multi-cluster" — often it
+   *  is just an AWS ELB's own multi-AZ round-robin. */
+  isMultiSite: boolean;
   /** Raw pipeline CRs — Advanced section reads status.conditions[]
    *  off these. Kept as untyped objects so the Advanced component
    *  doesn't need to grow its own CR type imports. */

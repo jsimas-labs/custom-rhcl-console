@@ -51,6 +51,12 @@ import DNSResolverMap from './DNSResolverMap';
 interface Props {
   prober: UseDnsProberResult;
   hostname: string;
+  /** True when the DNSRecord CR shows more than one owner cluster
+   *  publishing endpoints — the authoritative signal that a "different
+   *  IPs per resolver" pattern actually implies multi-cluster geo
+   *  routing. Passed through so the map can pick between the "expected:
+   *  same origin, different AZs" and "expected: multi-cluster" copy. */
+  isMultiSite: boolean;
 }
 
 const StatusChip: React.FC<{ r: DnsResolver }> = ({ r }) => {
@@ -108,7 +114,7 @@ const ResolverRows: React.FC<{ rows: DnsResolver[] }> = ({ rows }) => (
   </Table>
 );
 
-const DNSResolverTable: React.FC<Props> = ({ prober, hostname }) => {
+const DNSResolverTable: React.FC<Props> = ({ prober, hostname, isMultiSite }) => {
   // Case 1: prober not configured — full-height empty state.
   if (!prober.configured) {
     return (
@@ -227,7 +233,7 @@ const DNSResolverTable: React.FC<Props> = ({ prober, hostname }) => {
               instant "which cluster did each resolver land on" read.
               Renders below the table on narrow viewports, side-by-side
               on wide ones (see rhcl-dns-resolver-body CSS). */}
-          <DNSResolverMap resolvers={prober.resolvers || []} />
+          <DNSResolverMap resolvers={prober.resolvers || []} isMultiSite={isMultiSite} />
         </div>
       </CardBody>
     </Card>

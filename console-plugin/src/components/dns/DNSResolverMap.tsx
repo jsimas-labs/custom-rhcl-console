@@ -33,6 +33,12 @@ import { DEFAULT_RESOLVERS } from './useDnsProber';
 
 interface Props {
   resolvers: DnsResolver[];
+  /** True when the DNSRecord shows more than one owner cluster
+   *  publishing endpoints — the authoritative signal that multiple
+   *  answers across resolvers imply multi-site geo routing (not just
+   *  an ELB with multiple AZ IPs on a single cluster). Drives the
+   *  contextual note below the region row. */
+  isMultiSite: boolean;
 }
 
 /** Bucketing resolvers into coarse regions by longitude band. Bands are
@@ -110,7 +116,7 @@ interface PlottedResolver {
   region: RegionKey;
 }
 
-const DNSResolverMap: React.FC<Props> = ({ resolvers }) => {
+const DNSResolverMap: React.FC<Props> = ({ resolvers, isMultiSite }) => {
   const plotted: PlottedResolver[] = resolvers
     .map((r) => {
       const meta = DEFAULT_RESOLVERS.find((d) => d.name === r.name);
@@ -133,6 +139,21 @@ const DNSResolverMap: React.FC<Props> = ({ resolvers }) => {
   const nonEmptyRegions = REGIONS.filter((reg) =>
     plotted.some((p) => p.region === reg.key),
   );
+
+  // The colour split alone is NOT a reliable "multi-cluster" signal.
+  // AWS ELBs publish 2-8 A records for multi-AZ redundancy and different
+  // resolvers cache different subsets, so a hostname served from a
+  // single cluster on AWS routinely returns 2+ IPs — one per AZ.
+  //   * When the DNSRecord has more than one owner cluster (isMultiSite),
+  //     multiple answers really do mean multiple sites → the row reads as
+  //     "resolvers landing on different clusters", copy is celebratory.
+  //   * When there is no co-owner but we still see multiple answers, it
+  //     is (almost certainly) multi-AZ ELB round-robin on a single
+  //     cluster → the row includes a plain-English note explaining the
+  //     behaviour so an operator on a single-cluster install doesn't read
+  //     the two colours as a fault.
+  const multipleAnswers = uniqueTargets.length > 1;
+  const showSingleClusterHint = multipleAnswers && !isMultiSite;
 
   return (
     <div className="rhcl-dns-map-wrap">
@@ -201,6 +222,29 @@ const DNSResolverMap: React.FC<Props> = ({ resolvers }) => {
           );
         })}
       </div>
+
+      {/* Contextual explainer. Rendered only when the operator might
+          otherwise misread the picture — see the isMultiSite discussion
+          above the return. */}
+      {showSingleClusterHint && (
+        <div className="rhcl-dns-map-hint" role="note">
+          <strong>Same cluster, different AZs.</strong> The
+          {' '}{uniqueTargets.length}{' '}
+          distinct IPs are frontend addresses of the same load balancer —
+          AWS ELBs publish one A record per Availability Zone and
+          resolvers cache different subsets. This is expected on
+          single-cluster installs. See <em>DNS Provider &rarr; Co-owners</em>
+          {' '}for the authoritative multi-cluster signal.
+        </div>
+      )}
+      {isMultiSite && multipleAnswers && (
+        <div className="rhcl-dns-map-hint rhcl-dns-map-hint--multisite" role="note">
+          <strong>Multi-cluster routing active.</strong> The DNSRecord
+          shows more than one cluster co-publishing this hostname.
+          Different resolvers landing on different colours means geo /
+          weighted routing is doing its job.
+        </div>
+      )}
     </div>
   );
 };

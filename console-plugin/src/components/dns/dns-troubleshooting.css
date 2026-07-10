@@ -373,6 +373,34 @@
   font-size: 11px;
 }
 
+/* Contextual note under the region row. Kept low-contrast (info tone)
+   so the operator's eye doesn't get pulled to it — this exists to
+   answer a specific "wait, this looks like multi-site" question, not
+   to warn about a problem. */
+.rhcl-dns-page .rhcl-dns-map-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  background: color-mix(
+    in srgb,
+    var(--pf-t--global--color--nonstatus--blue--default) 8%,
+    transparent
+  );
+  color: var(--pf-t--global--color--regular);
+}
+.rhcl-dns-page .rhcl-dns-map-hint strong {
+  color: var(--pf-t--global--color--regular);
+}
+.rhcl-dns-page .rhcl-dns-map-hint--multisite {
+  background: color-mix(
+    in srgb,
+    var(--pf-t--global--color--status--success--default) 10%,
+    transparent
+  );
+}
+
 /* --------- Overall status banner --------- */
 .rhcl-dns-page .rhcl-dns-status-banner {
   display: flex;

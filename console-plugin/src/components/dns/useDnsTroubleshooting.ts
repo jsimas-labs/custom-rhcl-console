@@ -788,6 +788,7 @@ export function useDnsTroubleshooting(selectedHostname: string | null): DnsFlow 
       primaryFailure,
       needsDnsPolicy,
       targetGateway: gateway ? { name: gatewayName, namespace: gatewayNs } : null,
+      isMultiSite,
       rawObjects,
     };
   }, [
