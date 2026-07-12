@@ -8,8 +8,11 @@ import {
   ModalFooter,
   Button,
   Alert,
+  AlertVariant,
   Checkbox,
+  Tooltip,
 } from '@patternfly/react-core';
+import { OutlinedQuestionCircleIcon } from '@patternfly/react-icons';
 import { useHistory } from 'react-router-dom';
 import {
   k8sGet,
@@ -434,14 +437,37 @@ const APIProductCascadeDelete: React.FC<Props> = ({ namespace, name }) => {
 
   return (
     <>
-      <DropdownItem
-        key="cascade-delete"
-        onClick={openModal}
-        className="pf-m-danger"
-        description="Removes the HTTPRoute + AuthPolicy + rate-limit + product-scoped Secrets in one shot"
+      {/*
+        Wrapper Tooltip on hover of the entire row explains the split
+        ("what's removed vs what's kept") at first glance — the operator
+        doesn't have to open the modal to understand the blast radius.
+        DropdownItem's own `description` prop shows the short version
+        inline; the tooltip layers the full breakdown on top.
+      */}
+      <Tooltip
+        position="left"
+        content={
+          <div style={{ fontSize: 12, lineHeight: 1.5 }}>
+            <strong>Removes</strong>: HTTPRoute · AuthPolicy · RateLimitPolicy ·
+            TokenRateLimitPolicy · PlanPolicy · product-scoped Secrets · APIKey CRs and
+            their provisioned Secrets (opt-in).
+            <br />
+            <strong>Keeps</strong>: the parent Gateway and its DNSPolicy / TLSPolicy
+            — those are shared across every API on that Gateway and would take down
+            every hostname on the cluster if deleted.
+          </div>
+        }
       >
-        Remove API and associated resources
-      </DropdownItem>
+        <DropdownItem
+          key="cascade-delete"
+          onClick={openModal}
+          className="pf-m-danger"
+          description="Removes the HTTPRoute + AuthPolicy + rate-limit + product-scoped Secrets in one shot"
+          icon={<OutlinedQuestionCircleIcon />}
+        >
+          Remove API and associated resources
+        </DropdownItem>
+      </Tooltip>
 
       <Modal
         variant={ModalVariant.medium}
@@ -459,11 +485,30 @@ const APIProductCascadeDelete: React.FC<Props> = ({ namespace, name }) => {
           )}
           {refs && !results && (
             <>
-              <p style={{ marginBottom: 8 }}>
+              <p style={{ marginBottom: 12 }}>
                 Deleting {targetCount} resource{targetCount === 1 ? '' : 's'} in{' '}
-                <code>{namespace}</code>. The Gateway, DNSPolicy and TLSPolicy on the parent
-                Gateway are shared and are <strong>not</strong> touched.
+                <code>{namespace}</code>.
               </p>
+              {/*
+                Info-tone callout that makes the "shared" boundary
+                explicit. Kept ABOVE the list of things being deleted so
+                the operator's eye reads "what stays" before "what goes"
+                — the opposite order buried the guarantee in a footnote
+                and we still got asked "did this take down my Gateway?"
+                the day the flow shipped.
+              */}
+              <Alert
+                variant={AlertVariant.info}
+                isInline
+                title="Shared resources on the parent Gateway are not touched"
+                style={{ marginBottom: 12 }}
+              >
+                The <strong>Gateway</strong> itself, its <strong>DNSPolicy</strong> and
+                its <strong>TLSPolicy</strong> are shared across every API attached to
+                that Gateway. Deleting them would drop every hostname the cluster
+                publishes — so this teardown leaves them alone. Only resources
+                exclusive to <code>{name}</code> are removed.
+              </Alert>
               <ul className="rhcl-cascade-list">
                 {refs.map((r) => (
                   <li
