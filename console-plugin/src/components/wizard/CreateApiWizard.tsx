@@ -117,7 +117,14 @@ const CreateApiWizard: React.FC = () => {
         await k8sCreate({
           model: {
             apiVersion: r.apiVersion,
-            apiGroup: r.apiGroup,
+            // Undefined (not empty string) tells the SDK this is a
+            // core-group resource — it then builds `/api/v1/…`
+            // instead of the malformed `/apis//v1/…` that comes back
+            // as a 404 "Not Found". Bit us on the wizard's test-key
+            // Secret; every non-core kind (kuadrant.io/*, gateway.
+            // networking.k8s.io/*) worked because their apiGroup is
+            // always populated.
+            apiGroup: r.apiGroup || undefined,
             kind: r.kind,
             plural: r.plural,
             abbr: r.kind.slice(0, 3).toUpperCase(),

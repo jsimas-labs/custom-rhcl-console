@@ -20,6 +20,7 @@ import { APIProduct } from '../../types';
 import EmptyRBACState from '../common/EmptyRBACState';
 import FilterToolbar from '../common/FilterToolbar';
 import ResourceActionsMenu from '../common/ResourceActionsMenu';
+import APIProductCascadeDelete from './APIProductCascadeDelete';
 import '../../styles/plugin-glass.css';
 
 const APIProductListPage: React.FC = () => {
@@ -164,6 +165,9 @@ const APIProductListPage: React.FC = () => {
                       name={name}
                       listHref="/connectivity-link/api-products"
                       displayName={displayName}
+                      topItems={
+                        <APIProductCascadeDelete namespace={ns} name={name} />
+                      }
                     />
                   </Td>
                 </Tr>
