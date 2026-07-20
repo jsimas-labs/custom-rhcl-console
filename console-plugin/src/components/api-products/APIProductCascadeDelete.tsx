@@ -344,20 +344,55 @@ function deletionOrder(refs: DeletableRef[]): DeletableRef[] {
 // UI
 // ------------------------------------------------------------------
 
-interface Props {
-  namespace: string;
-  name: string;
-}
-
 interface DeleteResult {
   ref: DeletableRef;
   ok: boolean;
   error?: string;
 }
 
-const APIProductCascadeDelete: React.FC<Props> = ({ namespace, name }) => {
+/**
+ * The menu entry that lives INSIDE the row's actions Dropdown. It only fires a
+ * callback — the modal itself is rendered by the page OUTSIDE the dropdown,
+ * because a <Modal> mounted inside a PatternFly Dropdown is unmounted the
+ * instant the menu closes on select (the dropdown drops its children). That's
+ * why the old combined component only "flickered" and never opened.
+ */
+export const CascadeDeleteMenuItem: React.FC<{ onSelect: () => void }> = ({ onSelect }) => (
+  <Tooltip
+    position="left"
+    content={
+      <div style={{ fontSize: 12, lineHeight: 1.5 }}>
+        <strong>Removes</strong>: HTTPRoute · AuthPolicy · RateLimitPolicy ·
+        TokenRateLimitPolicy · PlanPolicy · product-scoped Secrets · APIKey CRs and
+        their provisioned Secrets (opt-in).
+        <br />
+        <strong>Keeps</strong>: the parent Gateway and its DNSPolicy / TLSPolicy
+        — those are shared across every API on that Gateway and would take down
+        every hostname on the cluster if deleted.
+      </div>
+    }
+  >
+    <DropdownItem
+      key="cascade-delete"
+      onClick={onSelect}
+      className="pf-m-danger"
+      description="Removes the HTTPRoute + AuthPolicy + rate-limit + product-scoped Secrets in one shot"
+      icon={<OutlinedQuestionCircleIcon />}
+    >
+      Remove API and associated resources
+    </DropdownItem>
+  </Tooltip>
+);
+
+interface Props {
+  namespace: string;
+  name: string;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const APIProductCascadeDelete: React.FC<Props> = ({ namespace, name, isOpen, onClose }) => {
   const history = useHistory();
-  const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [refs, setRefs] = React.useState<DeletableRef[] | null>(null);
   const [includeOptional, setIncludeOptional] = React.useState(true);
@@ -365,33 +400,45 @@ const APIProductCascadeDelete: React.FC<Props> = ({ namespace, name }) => {
   const [results, setResults] = React.useState<DeleteResult[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  const openModal = async () => {
-    setOpen(true);
-    setLoading(true);
-    setRefs(null);
-    setResults(null);
-    setError(null);
-    try {
-      const product = (await k8sGet({
-        model: toModel(APIProductGVK, 'apiproducts', true) as never,
-        name,
-        ns: namespace,
-      })) as APIProduct;
-      const discovered = await discover(product);
-      setRefs(discovered);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Discover the blast radius whenever the modal is (re)opened for a target.
+  // The modal is always mounted at page scope now, so key the run on isOpen +
+  // the target coordinates and reset the per-open state each time.
+  React.useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setRefs(null);
+      setResults(null);
+      setError(null);
+      setIncludeOptional(true);
+      setDeleting(false);
+      try {
+        const product = (await k8sGet({
+          model: toModel(APIProductGVK, 'apiproducts', true) as never,
+          name,
+          ns: namespace,
+        })) as APIProduct;
+        const discovered = await discover(product);
+        if (!cancelled) setRefs(discovered);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, namespace, name]);
 
   const close = () => {
     if (deleting) return;
-    setOpen(false);
+    const wasSuccess = results && results.every((r) => r.ok);
+    onClose();
     // Kick to the list if we just finished a successful teardown so
     // the operator lands on the refreshed page.
-    if (results && results.every((r) => r.ok)) {
+    if (wasSuccess) {
       history.push('/connectivity-link/api-products');
     }
   };
@@ -441,41 +488,9 @@ const APIProductCascadeDelete: React.FC<Props> = ({ namespace, name }) => {
 
   return (
     <>
-      {/*
-        Wrapper Tooltip on hover of the entire row explains the split
-        ("what's removed vs what's kept") at first glance — the operator
-        doesn't have to open the modal to understand the blast radius.
-        DropdownItem's own `description` prop shows the short version
-        inline; the tooltip layers the full breakdown on top.
-      */}
-      <Tooltip
-        position="left"
-        content={
-          <div style={{ fontSize: 12, lineHeight: 1.5 }}>
-            <strong>Removes</strong>: HTTPRoute · AuthPolicy · RateLimitPolicy ·
-            TokenRateLimitPolicy · PlanPolicy · product-scoped Secrets · APIKey CRs and
-            their provisioned Secrets (opt-in).
-            <br />
-            <strong>Keeps</strong>: the parent Gateway and its DNSPolicy / TLSPolicy
-            — those are shared across every API on that Gateway and would take down
-            every hostname on the cluster if deleted.
-          </div>
-        }
-      >
-        <DropdownItem
-          key="cascade-delete"
-          onClick={openModal}
-          className="pf-m-danger"
-          description="Removes the HTTPRoute + AuthPolicy + rate-limit + product-scoped Secrets in one shot"
-          icon={<OutlinedQuestionCircleIcon />}
-        >
-          Remove API and associated resources
-        </DropdownItem>
-      </Tooltip>
-
       <Modal
         variant={ModalVariant.medium}
-        isOpen={open}
+        isOpen={isOpen}
         onClose={close}
         aria-label="Remove API and associated resources"
       >
