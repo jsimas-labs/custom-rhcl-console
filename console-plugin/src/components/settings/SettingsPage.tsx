@@ -104,6 +104,8 @@ interface Dependency {
   stateLabel: string;
   tag?: { label: string; color: 'blue' | 'grey' };
   rows: DepRow[];
+  /** Optional extra content rendered under the rows (e.g. the Cost pricing table). */
+  extra?: React.ReactNode;
   actions: DepAction[];
   warningPanel?: { title: string; body: React.ReactNode };
 }
@@ -426,9 +428,37 @@ const SettingsPage: React.FC = () => {
       tag: { label: t('Optional'), color: 'grey' },
       rows: [
         { label: t('Currency'), value: <code>{currency}</code> },
-        { label: t('Monthly budget'), value: config.costBudget ? `${currency} ${config.costBudget}` : t('Not set') },
-        { label: t('Pricing tiers'), value: pricingTiers > 0 ? String(pricingTiers) : t('None') },
+        { label: t('Monthly budget'), value: config.costBudget ? `${currency} ${Number(config.costBudget).toLocaleString('pt-BR')}` : t('Not set') },
       ],
+      extra:
+        pricingTiers > 0 ? (
+          <div style={{ marginTop: 12 }}>
+            <div className="rhcl-kpi-label" style={{ marginBottom: 6 }}>{t('Pricing tiers (from ConfigMap)')}</div>
+            <Table variant="compact" aria-label={t('Cost pricing tiers')}>
+              <Thead>
+                <Tr>
+                  <Th>{t('Tier')}</Th>
+                  <Th>{t('Per 1K tokens')}</Th>
+                  <Th>{t('Per 1K calls')}</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {Object.entries(pricing)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([tier, v]) => (
+                    <Tr key={tier}>
+                      <Td><Label color={tierColor(tier)} isCompact>{tier}</Label></Td>
+                      <Td>{currency} {v.tokens_per_1k.toFixed(2)}</Td>
+                      <Td>{currency} {v.calls_per_1k.toFixed(2)}</Td>
+                    </Tr>
+                  ))}
+              </Tbody>
+            </Table>
+            <div style={{ fontSize: 11, color: 'var(--pf-v5-global--Color--200)', marginTop: 6 }}>
+              {t('cost = (calls ÷ 1000) × per-1K-calls + (tokens ÷ 1000) × per-1K-tokens, per tier')}
+            </div>
+          </div>
+        ) : undefined,
       actions: [
         { label: t('View pricing configuration'), icon: <DollarSignIcon />, to: '/connectivity-link/cost', isPrimary: true },
       ],
@@ -670,6 +700,7 @@ const DependencyCard: React.FC<{ dep: Dependency }> = ({ dep }) => (
           </DescriptionListGroup>
         ))}
       </DescriptionList>
+      {dep.extra}
       {dep.warningPanel && (
         <Alert variant={AlertVariant.warning} isInline isPlain title={dep.warningPanel.title} style={{ marginTop: 12 }}>
           <span style={{ fontSize: 12 }}>{dep.warningPanel.body}</span>
