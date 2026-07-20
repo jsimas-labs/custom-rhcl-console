@@ -56,6 +56,7 @@ import {
   PluginConfig,
 } from '../../utils/pluginConfig';
 import { useGrafanaLink } from '../../utils/grafana';
+import { useTempoLink } from '../../utils/tempo';
 import '../../styles/plugin-glass.css';
 
 /**
@@ -217,19 +218,6 @@ function useUrlReachable(url: string | undefined, runKey: number): { state: DepS
   return { state, at };
 }
 
-/** Whether a Route exists (CORS-free, via the k8s API). null while loading. */
-function useRouteExists(namespace: string, name: string): boolean | null {
-  const [route, loaded, error] = useK8sWatchResource<K8sResourceCommon>({
-    groupVersionKind: { group: 'route.openshift.io', version: 'v1', kind: 'Route' },
-    namespace,
-    name,
-    isList: false,
-  });
-  if (!loaded) return null;
-  if (error) return false;
-  return !!route?.metadata?.name;
-}
-
 /** Re-renders every 15s so relative timestamps stay fresh. */
 function useTick(): void {
   const [, force] = React.useState(0);
@@ -278,7 +266,10 @@ const SettingsPage: React.FC = () => {
   const grafana = useGrafanaLink('api-overview', {});
   const tempoNs = config.tempoNamespace || 'tempo';
   const tempoRouteName = config.tempoGatewayRouteName || 'tempo-tempo-rhcl-gateway';
-  const tempoRoute = useRouteExists(tempoNs, tempoRouteName);
+  // Availability comes from the TempoStack CR (same resolver the Gateway /
+  // HTTPRoute "View traces" links use), NOT a Route lookup — a Route check
+  // was returning false even when Tempo is installed.
+  const tempo = useTempoLink({});
   const dnsProber = useDnsProberProbe(config.dnsProberUrl, runKey);
   const devHub = useUrlReachable(config.internalDeveloperHubUrl, runKey);
   const devPortal = useUrlReachable(config.developerPortalUrl, runKey);
@@ -287,7 +278,7 @@ const SettingsPage: React.FC = () => {
   const currency = config.costCurrency || 'BRL';
 
   const grafanaState: DepState = grafana.loading ? 'checking' : grafana.available ? 'healthy' : 'warning';
-  const tempoState: DepState = tempoRoute === null ? 'checking' : tempoRoute ? 'healthy' : 'optional';
+  const tempoState: DepState = tempo.loading ? 'checking' : tempo.available ? 'healthy' : 'optional';
   const costState: DepState = pricingTiers > 0 ? 'healthy' : 'optional';
 
   const deps: Dependency[] = [
@@ -327,7 +318,7 @@ const SettingsPage: React.FC = () => {
           isDisabled: !grafana.available,
           isPrimary: true,
         },
-        { label: t('Test dashboard'), icon: <SyncAltIcon />, onClick: runValidation },
+        { label: t('Validate'), icon: <SyncAltIcon />, onClick: runValidation },
       ],
     },
     {
@@ -335,7 +326,7 @@ const SettingsPage: React.FC = () => {
       name: t('Tempo (Traces)'),
       icon: <PlugIcon />,
       state: tempoState,
-      stateLabel: tempoState === 'healthy' ? t('Configured') : t('Not configured'),
+      stateLabel: tempoState === 'healthy' ? t('Reachable') : tempoState === 'checking' ? t('Checking…') : t('Not configured'),
       tag: { label: t('Optional'), color: 'grey' },
       rows: [
         { label: t('Namespace'), value: <code>{tempoNs}</code> },
@@ -347,18 +338,24 @@ const SettingsPage: React.FC = () => {
           ? {
               title: t('Distributed traces are unavailable'),
               body: t(
-                'The Tempo gateway route was not found, so "View traces" deep links on Gateway and HTTPRoute pages stay disabled. Install a TempoStack to enable end-to-end tracing.',
+                'No TempoStack was found in the configured namespace, so "View traces" deep links on Gateway and HTTPRoute pages stay disabled. Install a TempoStack to enable end-to-end tracing.',
               ),
             }
           : undefined,
-      actions: [
-        {
-          label: t('Set up Tempo'),
-          icon: <ExternalLinkAltIcon />,
-          to: '/operatorhub/ns/openshift-operators?keyword=tempo',
-          isPrimary: tempoState === 'optional',
-        },
-      ],
+      actions:
+        tempoState === 'healthy'
+          ? [
+              { label: t('View traces'), icon: <PlugIcon />, to: tempo.url || undefined, isPrimary: true },
+              { label: t('Validate'), icon: <SyncAltIcon />, onClick: runValidation },
+            ]
+          : [
+              {
+                label: t('Set up Tempo'),
+                icon: <ExternalLinkAltIcon />,
+                to: '/operatorhub/ns/openshift-operators?keyword=tempo',
+                isPrimary: true,
+              },
+            ],
     },
     {
       id: 'dns-prober',
