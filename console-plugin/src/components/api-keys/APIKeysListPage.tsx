@@ -94,6 +94,7 @@ const APIKeysListPage: React.FC = () => {
   const [search, setSearch] = React.useState('');
   const [phase, setPhase] = React.useState<PhaseFilter>('all');
   const [phaseOpen, setPhaseOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(false);
 
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -277,8 +278,6 @@ const APIKeysListPage: React.FC = () => {
       </Bullseye>
     );
   }
-
-  const [createOpen, setCreateOpen] = React.useState(false);
 
   return (
     <div className="rhcl-plugin-root">

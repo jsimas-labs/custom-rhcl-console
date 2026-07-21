@@ -3,6 +3,8 @@ node_modules/
 
 # Build output
 dist/
+# Maven/Quarkus output from the dns-prober companion app
+target/
 
 # OS files
 .DS_Store

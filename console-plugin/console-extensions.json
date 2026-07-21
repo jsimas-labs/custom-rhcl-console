@@ -3,7 +3,7 @@
     "type": "console.navigation/section",
     "properties": {
       "id": "connectivity-link",
-      "name": "%plugin__custom-rhcl-console~Custom Connectivity Link%",
+      "name": "%plugin__custom-rhcl-console~Kuadrant Console%",
       "perspective": "admin"
     }
   },
@@ -62,6 +62,15 @@
     }
   },
   {
+    "type": "console.navigation/separator",
+    "properties": {
+      "id": "connectivity-link-separator-dns",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-policies"
+    }
+  },
+  {
     "type": "console.navigation/href",
     "properties": {
       "id": "connectivity-link-dns-overview",
@@ -69,7 +78,7 @@
       "href": "/connectivity-link/dns/overview",
       "perspective": "admin",
       "section": "connectivity-link",
-      "insertAfter": "connectivity-link-policies"
+      "insertAfter": "connectivity-link-separator-dns"
     }
   },
   {
@@ -209,11 +218,46 @@
     }
   },
   {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "connectivity-link-settings",
+      "name": "%plugin__custom-rhcl-console~Settings%",
+      "href": "/connectivity-link/settings",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-cost"
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/connectivity-link/settings",
+      "component": {
+        "$codeRef": "SettingsPage"
+      }
+    }
+  },
+  {
     "type": "console.flag/hookProvider",
     "properties": {
       "handler": {
         "$codeRef": "developerPortalFlag.useDeveloperPortalFlag"
       }
+    }
+  },
+  {
+    "type": "console.navigation/separator",
+    "properties": {
+      "id": "connectivity-link-separator-portals",
+      "perspective": "admin",
+      "section": "connectivity-link",
+      "insertAfter": "connectivity-link-settings"
+    },
+    "flags": {
+      "required": [
+        "DEVELOPER_PORTAL_URL_PRESENT"
+      ]
     }
   },
   {
@@ -224,7 +268,7 @@
       "href": "/connectivity-link/developer-portal",
       "perspective": "admin",
       "section": "connectivity-link",
-      "insertAfter": "connectivity-link-apikeys"
+      "insertAfter": "connectivity-link-separator-portals"
     },
     "flags": {
       "required": [

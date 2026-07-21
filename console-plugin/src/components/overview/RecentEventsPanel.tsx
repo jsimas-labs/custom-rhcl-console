@@ -11,6 +11,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { RecentEvent } from './types';
+import { OVERVIEW_LIST_LIMIT, ListCardFooter } from './overviewList';
 
 interface Props {
   events: RecentEvent[];
@@ -37,6 +38,8 @@ export const RecentEventsPanel: React.FC<Props> = ({ events }) => {
     warning: t('Warning'),
     critical: t('Critical'),
   };
+  // Events arrive newest-first from the hook — keep that order, just cap.
+  const visible = events.slice(0, OVERVIEW_LIST_LIMIT);
   return (
     <Card aria-label={t('Recent events')}>
       <CardTitle>
@@ -58,7 +61,7 @@ export const RecentEventsPanel: React.FC<Props> = ({ events }) => {
       </CardTitle>
       <CardBody>
         <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsSm' }}>
-          {events.map((e) => (
+          {visible.map((e) => (
             <FlexItem key={e.id}>
               <Link
                 to={e.href}
@@ -96,6 +99,7 @@ export const RecentEventsPanel: React.FC<Props> = ({ events }) => {
             </FlexItem>
           ))}
         </Flex>
+        <ListCardFooter shown={visible.length} total={events.length} />
       </CardBody>
     </Card>
   );

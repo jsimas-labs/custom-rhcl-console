@@ -241,22 +241,6 @@ const APIOverviewContent: React.FC<{
               />
             </FlexItem>
           )}
-          {targetRef?.kind === 'HTTPRoute' && targetRef?.name && (
-            <FlexItem>
-              {/* Tempo search filtered to the gateway service + http.route
-                  tag. From there the trace tree drills into wasm-shim,
-                  limitador, and the auto-instrumented banking-api spans. */}
-              <OpenInTempoButton
-                label={t('Traces')}
-                variant="tertiary"
-                vars={{
-                  serviceName: 'rhcl-gateway',
-                  tags: { 'http.route': targetRef.name },
-                  lookback: '1h',
-                }}
-              />
-            </FlexItem>
-          )}
           {/* Same "Create API" CTA the list page offers, mirrored here so
               an operator drilled into an API's detail can spin up a
               sibling without bouncing back to /api-products. */}

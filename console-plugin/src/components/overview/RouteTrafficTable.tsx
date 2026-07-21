@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import Sparkline from './Sparkline';
 import { RouteTrafficRow } from './types';
+import { OVERVIEW_LIST_LIMIT, ListCardFooter, rankByError } from './overviewList';
 
 interface Props {
   rows: RouteTrafficRow[];
@@ -23,6 +24,10 @@ interface Props {
  */
 export const RouteTrafficTable: React.FC<Props> = ({ rows }) => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
+  const visible = React.useMemo(
+    () => rankByError(rows).slice(0, OVERVIEW_LIST_LIMIT),
+    [rows],
+  );
   return (
     <Card aria-label={t('HTTPRoutes traffic')}>
       <CardTitle>
@@ -56,7 +61,7 @@ export const RouteTrafficTable: React.FC<Props> = ({ rows }) => {
             </Tr>
           </Thead>
           <Tbody>
-            {rows.map((r) => {
+            {visible.map((r) => {
               const errorTone = r.errorRatePct >= 5 ? 'bad' : r.errorRatePct >= 1 ? 'warn' : 'good';
               const errorColor =
                 errorTone === 'bad' ? 'var(--pf-v5-global--danger-color--100)' :
@@ -86,6 +91,7 @@ export const RouteTrafficTable: React.FC<Props> = ({ rows }) => {
             })}
           </Tbody>
         </Table>
+        <ListCardFooter shown={visible.length} total={rows.length} />
       </CardBody>
     </Card>
   );

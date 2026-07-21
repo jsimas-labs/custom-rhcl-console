@@ -136,6 +136,13 @@ export interface UseCostByConsumerResult {
   loaded: boolean;
   /** True when the ConfigMap declares a pricing table. */
   hasPricing: boolean;
+  /**
+   * The parsed per-tier pricing table from the ConfigMap. Empty record
+   * when `hasPricing` is false. Exposed so the page can render the rate
+   * card ("how costs are calculated") from the same source of truth the
+   * cost math uses.
+   */
+  pricing: CostPricing;
   currency: string;
   totals: CostTotals;
   drivers: CostDriver[];
@@ -702,6 +709,7 @@ export function useCostByConsumer(): UseCostByConsumerResult {
       rows,
       loaded,
       hasPricing,
+      pricing,
       currency,
       totals,
       drivers,

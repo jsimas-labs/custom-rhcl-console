@@ -12,6 +12,7 @@ import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { PolicyImpact, PolicyImpactRow } from './types';
+import { OVERVIEW_LIST_LIMIT, ListCardFooter, rankByPolicyStatus } from './overviewList';
 
 // Turns the discriminated PolicyImpact into the label rendered in the
 // "Impact" column, using i18n templates so cluster-derived strings
@@ -63,6 +64,10 @@ export const PolicyImpactTable: React.FC<Props> = ({ rows }) => {
     overridden: t('Overridden'),
     failed: t('Failed'),
   };
+  const visible = React.useMemo(
+    () => rankByPolicyStatus(rows).slice(0, OVERVIEW_LIST_LIMIT),
+    [rows],
+  );
   return (
     <Card aria-label={t('Policies and their effective impact')}>
       <CardTitle>
@@ -94,7 +99,7 @@ export const PolicyImpactTable: React.FC<Props> = ({ rows }) => {
             </Tr>
           </Thead>
           <Tbody>
-            {rows.map((r) => (
+            {visible.map((r) => (
               <Tr key={r.id}>
                 <Td>
                   <Link to={r.href}>{r.name}</Link>
@@ -119,6 +124,7 @@ export const PolicyImpactTable: React.FC<Props> = ({ rows }) => {
             ))}
           </Tbody>
         </Table>
+        <ListCardFooter shown={visible.length} total={rows.length} />
       </CardBody>
     </Card>
   );

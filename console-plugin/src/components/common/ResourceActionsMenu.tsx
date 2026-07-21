@@ -244,9 +244,13 @@ const ResourceActionsMenu: React.FC<ResourceActionsMenuProps> = ({
         <ModalBody>
           <Content>
             <p>
-              {t('This will remove {{name}} from namespace {{ns}}. This cannot be undone.', {
+              {/* NOT {{ns}}: `ns` is i18next's reserved namespace option, so
+                  passing it here makes i18next look the key up in namespace
+                  "<the value>" (e.g. "rhcl-apps") and warn "missing key". Use a
+                  non-reserved interpolation name. */}
+              {t('This will remove {{name}} from namespace {{namespace}}. This cannot be undone.', {
                 name,
-                ns: namespace || t('(cluster-scoped)'),
+                namespace: namespace || t('(cluster-scoped)'),
               })}
             </p>
           </Content>

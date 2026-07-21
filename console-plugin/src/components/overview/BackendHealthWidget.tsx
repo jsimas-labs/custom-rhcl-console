@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import Sparkline from './Sparkline';
 import { BackendRow, HealthSeverity } from './types';
+import { OVERVIEW_LIST_LIMIT, ListCardFooter, rankByHealth } from './overviewList';
 
 interface Props {
   rows: BackendRow[];
@@ -48,6 +49,15 @@ const Donut: React.FC<{ healthy: number; warning: number; critical: number }> = 
     .filter((s) => s.value > 0)
     .map((s, i) => {
       const angle = (s.value / total) * 360;
+      // A single slice that fills the whole ring (e.g. every backend Warning)
+      // can't be drawn with one SVG arc: the start and end points coincide, so
+      // the `A` path renders as nothing and only the grey track shows through
+      // ("donut apagado"). Draw a full <circle> in that colour instead.
+      if (angle >= 359.999) {
+        return (
+          <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={12} />
+        );
+      }
       const a0 = (angleAcc * Math.PI) / 180;
       const a1 = ((angleAcc + angle) * Math.PI) / 180;
       angleAcc += angle;
@@ -112,6 +122,13 @@ export const BackendHealthWidget: React.FC<Props> = ({ rows }) => {
     }
     return { h, w, c };
   }, [rows]);
+
+  // Donut counts stay over ALL rows (full picture); the table shows only the
+  // top-N ranked worst-first so problems are always on the first screen.
+  const visible = React.useMemo(
+    () => rankByHealth(rows).slice(0, OVERVIEW_LIST_LIMIT),
+    [rows],
+  );
 
   return (
     <Card aria-label={t('Backend health')}>
@@ -180,7 +197,7 @@ export const BackendHealthWidget: React.FC<Props> = ({ rows }) => {
                 </Tr>
               </Thead>
               <Tbody>
-                {rows.map((r) => (
+                {visible.map((r) => (
                   <Tr key={r.id}>
                     <Td>
                       <Link to={r.href}>{r.name}</Link>
@@ -203,6 +220,7 @@ export const BackendHealthWidget: React.FC<Props> = ({ rows }) => {
                 ))}
               </Tbody>
             </Table>
+            <ListCardFooter shown={visible.length} total={rows.length} />
           </FlexItem>
         </Flex>
       </CardBody>

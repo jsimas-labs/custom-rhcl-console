@@ -20,13 +20,21 @@ import { APIProduct } from '../../types';
 import EmptyRBACState from '../common/EmptyRBACState';
 import FilterToolbar from '../common/FilterToolbar';
 import ResourceActionsMenu from '../common/ResourceActionsMenu';
-import APIProductCascadeDelete from './APIProductCascadeDelete';
+import APIProductCascadeDelete, { CascadeDeleteMenuItem } from './APIProductCascadeDelete';
 import '../../styles/plugin-glass.css';
 
 const APIProductListPage: React.FC = () => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
   const [searchValue, setSearchValue] = React.useState('');
   const [selectedStatuses, setSelectedStatuses] = React.useState<string[]>([]);
+  // Cascade-delete modal target. The modal is rendered ONCE at page scope
+  // (below) instead of inside each row's actions Dropdown — a Modal mounted
+  // inside the dropdown unmounts the instant the menu closes, so it only
+  // flickered and never opened.
+  const [cascadeTarget, setCascadeTarget] = React.useState<{
+    namespace: string;
+    name: string;
+  } | null>(null);
 
   const {
     data: apiProducts,
@@ -166,7 +174,9 @@ const APIProductListPage: React.FC = () => {
                       listHref="/connectivity-link/api-products"
                       displayName={displayName}
                       topItems={
-                        <APIProductCascadeDelete namespace={ns} name={name} />
+                        <CascadeDeleteMenuItem
+                          onSelect={() => setCascadeTarget({ namespace: ns, name })}
+                        />
                       }
                     />
                   </Td>
@@ -176,6 +186,13 @@ const APIProductListPage: React.FC = () => {
           </Tbody>
         </Table>
       </PageSection>
+      {/* One page-scoped cascade-delete modal driven by the row menu items. */}
+      <APIProductCascadeDelete
+        isOpen={!!cascadeTarget}
+        namespace={cascadeTarget?.namespace ?? ''}
+        name={cascadeTarget?.name ?? ''}
+        onClose={() => setCascadeTarget(null)}
+      />
     </div>
   );
 };

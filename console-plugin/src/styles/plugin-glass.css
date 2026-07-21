@@ -202,3 +202,27 @@
 .rhcl-plugin-root .pf-v5-c-label {
   letter-spacing: 0.02em;
 }
+
+/* --------- Operations-center cards (Settings) --------- */
+.rhcl-plugin-root .rhcl-ops-card {
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  height: 100%;
+}
+.rhcl-plugin-root .rhcl-ops-card:hover {
+  box-shadow: 0 0.25rem 1rem rgba(3, 3, 3, 0.28);
+  transform: translateY(-1px);
+}
+/* KPI number */
+.rhcl-plugin-root .rhcl-kpi-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.rhcl-plugin-root .rhcl-kpi-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pf-v5-global--Color--200);
+}

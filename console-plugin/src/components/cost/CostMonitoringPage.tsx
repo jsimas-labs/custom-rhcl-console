@@ -48,6 +48,7 @@ import {
   DashboardKey,
 } from '../../hooks/useCostByConsumer';
 import { useGrafanaLink, GrafanaDashboard } from '../../utils/grafana';
+import { CostPricing } from '../../utils/pluginConfig';
 import './cost-monitoring.css';
 
 /**
@@ -454,6 +455,7 @@ const CostMonitoringPage: React.FC = () => {
     rows,
     loaded,
     hasPricing,
+    pricing,
     currency,
     totals,
     drivers,
@@ -713,7 +715,14 @@ const CostMonitoringPage: React.FC = () => {
         </Grid>
       </PageSection>
 
-      {/* ---------- §6 Recommendations ---------- */}
+      {/* ---------- §6 How costs are calculated ---------- */}
+      {hasPricing && (
+        <PageSection className="rhcl-page-section">
+          <CostConfigCard pricing={pricing} currency={currency} budget={budget} t={t} />
+        </PageSection>
+      )}
+
+      {/* ---------- §7 Recommendations ---------- */}
       {recommendations.length > 0 && (
         <PageSection className="rhcl-page-section">
           <div className="rhcl-section-title rhcl-section-title-h2">
@@ -730,7 +739,7 @@ const CostMonitoringPage: React.FC = () => {
         </PageSection>
       )}
 
-      {/* ---------- §7 Explore in Grafana ---------- */}
+      {/* ---------- §8 Explore in Grafana ---------- */}
       <PageSection className="rhcl-page-section">
         <div className="rhcl-section-title rhcl-section-title-h2">{t('Explore in Grafana')}</div>
         <div style={{ color: 'var(--rhcl-text-subtle)', fontSize: 13, marginBottom: 12 }}>
@@ -990,6 +999,112 @@ const CostBreakdownCard: React.FC<{
     </CardBody>
   </Card>
 );
+
+/**
+ * "How costs are calculated" — a reference card that surfaces the exact
+ * per-tier rates from the plugin ConfigMap plus the formula the cost
+ * math applies, so a viewer can reconcile any number on this page by
+ * hand (and see which raw metric each driver comes from). Same source
+ * of truth the KPIs above are computed from — nothing is re-derived.
+ */
+const CostConfigCard: React.FC<{
+  pricing: CostPricing;
+  currency: string;
+  budget: number | null;
+  t: (s: string) => string;
+}> = ({ pricing, currency, budget, t }) => {
+  const tiers = Object.entries(pricing).sort(([a], [b]) => a.localeCompare(b));
+  return (
+    <Card isPlain className="rhcl-section-card">
+      <CardBody>
+        <div className="rhcl-section-title rhcl-section-title-h2">
+          {t('How costs are calculated')}
+          <Tooltip
+            content={t(
+              'The per-tier rates and formula the plugin applies to raw usage — the same source of truth the numbers above are computed from.',
+            )}
+          >
+            <InfoCircleIcon style={{ verticalAlign: 'middle', opacity: 0.6, fontSize: 14, marginLeft: 6 }} />
+          </Tooltip>
+        </div>
+        <Grid hasGutter>
+          {/* Per-tier rate table */}
+          <GridItem md={12} lg={7}>
+            <Table aria-label={t('Cost pricing tiers')} variant="compact" borders={false}>
+              <Thead>
+                <Tr>
+                  <Th>{t('Plan')}</Th>
+                  <Th>{t('Per 1K calls')}</Th>
+                  <Th>{t('Per 1K tokens')}</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {tiers.map(([tier, v]) => (
+                  <Tr key={tier}>
+                    <Td>
+                      <Label color={tierColor[tier] || 'grey'} isCompact>
+                        {tier}
+                      </Label>
+                    </Td>
+                    <Td>{formatCurrency(v.calls_per_1k, currency)}</Td>
+                    <Td>{formatCurrency(v.tokens_per_1k, currency)}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </GridItem>
+
+          {/* Formula + metric provenance */}
+          <GridItem md={12} lg={5}>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              <code
+                style={{
+                  display: 'block',
+                  padding: '10px 12px',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  color: 'var(--pf-t--global--text--color--regular)',
+                }}
+              >
+                cost = (calls ÷ 1000) × rate<sub>calls</sub>
+                <br />
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ (tokens ÷ 1000) × rate<sub>tokens</sub>
+              </code>
+              <div style={{ marginTop: 10, color: 'var(--rhcl-text-subtle)' }}>
+                {t('Computed per consumer at its plan-tier rate, then summed across all consumers.')}
+              </div>
+              <ul style={{ marginTop: 10, paddingLeft: 18, color: 'var(--rhcl-text-subtle)', fontSize: 12 }}>
+                <li style={{ marginBottom: 4 }}>
+                  <strong style={{ color: 'var(--pf-t--global--text--color--regular)' }}>{t('Calls')}</strong> — <code>istio_requests_total</code> · {t('every gateway request')}
+                </li>
+                <li>
+                  <strong style={{ color: 'var(--pf-t--global--text--color--regular)' }}>{t('Tokens')}</strong> — <code>bank_ai_tokens_total</code> · {t('AI prompt + completion')}
+                </li>
+              </ul>
+              <div style={{ marginTop: 12, fontSize: 12, color: 'var(--rhcl-text-subtle)' }}>
+                {t('Currency')}: <strong style={{ color: 'var(--pf-t--global--text--color--regular)' }}>{currency}</strong>
+                {budget != null && (
+                  <>
+                    {' · '}
+                    {t('Monthly budget')}:{' '}
+                    <strong style={{ color: 'var(--pf-t--global--text--color--regular)' }}>
+                      {formatCurrency(budget, currency)}
+                    </strong>
+                  </>
+                )}
+              </div>
+              <div style={{ marginTop: 10, fontSize: 11, color: 'var(--rhcl-text-subtle)', fontStyle: 'italic' }}>
+                {t('Rates come from the plugin ConfigMap (costPricing). Edit there to change billing.')}
+              </div>
+            </div>
+          </GridItem>
+        </Grid>
+      </CardBody>
+    </Card>
+  );
+};
 
 const BudgetCard: React.FC<{
   budget: number | null;
