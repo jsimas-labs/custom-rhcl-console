@@ -283,6 +283,18 @@ const GatewayDetailPage: React.FC = () => {
   );
 };
 
+// A condition's `lastTransitionTime` is an optional metav1.Time string. When
+// it's absent or a zero/unparseable value, `new Date(...)` lands on the Unix
+// epoch — which is what surfaced as "01/01/1970" in the Status table. Guard
+// those cases and render "-" instead (matching the other cells), and format
+// real timestamps in a readable localized form.
+const formatTransitionTime = (iso?: string): string => {
+  if (!iso) return '-';
+  const ms = new Date(iso).getTime();
+  if (Number.isNaN(ms) || ms <= 0) return '-';
+  return new Date(ms).toLocaleString();
+};
+
 const ConditionsCard: React.FC<{ conditions?: K8sCondition[] }> = ({ conditions }) => {
   const { t } = useTranslation('plugin__custom-rhcl-console');
 
@@ -315,7 +327,7 @@ const ConditionsCard: React.FC<{ conditions?: K8sCondition[] }> = ({ conditions 
                 </Td>
                 <Td>{c.reason || '-'}</Td>
                 <Td>{c.message || '-'}</Td>
-                <Td>{c.lastTransitionTime || '-'}</Td>
+                <Td>{formatTransitionTime(c.lastTransitionTime)}</Td>
               </Tr>
             ))}
           </Tbody>
